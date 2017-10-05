@@ -23,8 +23,10 @@ const (
 // ops for client
 const (
 	B_shk     = "sk"   // shell without exit
-	B_sh      = "sh"   // shell server
+	B_shs     = "sh"   // shell server
+	B_csh     = "csh"  // shell with option
 
+	B_fs      = "fs"  // file ops
 	B_push    = "put"  // pipe client to file
 	B_get     = "get"  // pipe file to client
 	B_del     = "del"  // del file
