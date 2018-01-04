@@ -264,9 +264,9 @@ func (s *Session) recvLoop() {
 			switch f.cmd {
 			case cmdNOP:
 				if s.EnableStreamBuffer {
-					s.writeFrame(newFrame(cmdACK, f.sid))
+					s.writeFrameNRet(newFrame(cmdACK, f.sid))
 				} else {
-					s.writeFrame(newFrame(cmdNOP, f.sid))
+					s.writeFrameNRet(newFrame(cmdNOP, f.sid))
 				}
 			case cmdSYN:
 				s.streamLock.Lock()
@@ -304,7 +304,6 @@ func (s *Session) recvLoop() {
 				s.streamLock.Lock()
 				if stream, ok := s.streams[f.sid]; ok {
 					stream.resumeWrite()
-					stream.notifyReadEvent()
 				}
 				s.streamLock.Unlock()
 			case cmdACK:
@@ -420,6 +419,17 @@ func (s *Session) writeFrame(f Frame) (n int, err error) {
 
 	result := <-req.result
 	return result.n, result.err
+}
+
+func (s *Session) writeFrameNRet(f Frame) {
+	req := writeRequest{
+		frame:  f,
+		result: make(chan writeResult, 1),
+	}
+	select {
+	case <-s.die:
+	case s.writes <- req:
+	}
 }
 
 func (s *Session) WriteCustomCMD(cmd byte, bts []byte) (n int, err error) {
