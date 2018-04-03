@@ -15,10 +15,10 @@ const (
 	defaultAcceptBacklog = 1024
 )
 
-const (
-	errBrokenPipe      = "broken pipe"
-	errInvalidProtocol = "invalid protocol version"
-	errGoAway          = "stream id overflows, should start a new connection"
+var (
+	ErrBrokenPipe      = errors.New("broken pipe")
+	ErrInvalidProtocol = errors.New("invalid protocol version")
+	ErrGoAway          = errors.New("stream id overflows, should start a new connection")
 )
 
 type writeRequest struct {
@@ -101,14 +101,14 @@ func newSession(config *Config, conn io.ReadWriteCloser, client bool) *Session {
 // OpenStream is used to create a new stream
 func (s *Session) OpenStream() (*Stream, error) {
 	if s.IsClosed() {
-		return nil, errors.New(errBrokenPipe)
+		return nil, ErrBrokenPipe
 	}
 
 	// generate stream id
 	s.nextStreamIDLock.Lock()
 	if s.goAway > 0 {
 		s.nextStreamIDLock.Unlock()
-		return nil, errors.New(errGoAway)
+		return nil, ErrGoAway
 	}
 
 	s.nextStreamID += 2
@@ -116,7 +116,7 @@ func (s *Session) OpenStream() (*Stream, error) {
 	if sid == sid%2 { // stream-id overflows
 		s.goAway = 1
 		s.nextStreamIDLock.Unlock()
-		return nil, errors.New(errGoAway)
+		return nil, ErrGoAway
 	}
 	s.nextStreamIDLock.Unlock()
 
@@ -147,7 +147,7 @@ func (s *Session) AcceptStream() (*Stream, error) {
 	case <-deadline:
 		return nil, errTimeout
 	case <-s.die:
-		return nil, errors.New(errBrokenPipe)
+		return nil, ErrBrokenPipe
 	}
 }
 
@@ -158,7 +158,7 @@ func (s *Session) Close() (err error) {
 	select {
 	case <-s.die:
 		s.dieLock.Unlock()
-		return errors.New(errBrokenPipe)
+		return ErrBrokenPipe
 	default:
 		close(s.die)
 		s.dieLock.Unlock()
@@ -235,7 +235,7 @@ func (s *Session) readFrame(buffer []byte) (f Frame, err error) {
 
 	dec := rawHeader(buffer)
 	if dec.Version() != version {
-		return f, errors.New(errInvalidProtocol)
+		return f, ErrInvalidProtocol
 	}
 
 	f.ver = dec.Version()
@@ -413,7 +413,7 @@ func (s *Session) writeFrame(f Frame) (n int, err error) {
 	}
 	select {
 	case <-s.die:
-		return 0, errors.New(errBrokenPipe)
+		return 0, ErrBrokenPipe
 	case s.writes <- req:
 	}
 
@@ -434,7 +434,7 @@ func (s *Session) writeFrameNRet(f Frame) {
 
 func (s *Session) WriteCustomCMD(cmd byte, bts []byte) (n int, err error) {
 	if s.IsClosed() {
-		return 0, errors.New(errBrokenPipe)
+		return 0, ErrBrokenPipe
 	}
 	f := newFrame(cmd, 0)
 	f.data = bts
