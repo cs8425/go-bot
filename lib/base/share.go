@@ -10,33 +10,31 @@ import (
 //	"fmt"
 	"log"
 )
-/*
-func Vf(level int, format string, v ...interface{}) { }
-func V(level int, v ...interface{}) { }
-func Vln(level int, v ...interface{}) { }
-*/
+
+const verbosity = 0
+
 func Vf(level int, format string, v ...interface{}) {
-	if level <= 6 {
+	if level <= verbosity {
 		log.Printf(format, v...)
 	}
 }
 func V(level int, v ...interface{}) {
-	if level <= 6 {
+	if level <= verbosity {
 		log.Print(v...)
 	}
 }
 func Vln(level int, v ...interface{}) {
-	if level <= 6 {
+	if level <= verbosity {
 		log.Println(v...)
 	}
 }
 
-func replyAndClose(p1 net.Conn, rpy int) {
+var s5ReplyAndClose = func (p1 net.Conn, rpy int) {
 	p1.Write([]byte{0x05, byte(rpy), 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
 	p1.Close()
 }
 
-func handleFastS(p1 net.Conn) {
+var handleFastS = func (p1 net.Conn) {
 	var b [320]byte
 	n, err := p1.Read(b[:])
 	if err != nil {
@@ -57,7 +55,7 @@ func handleFastS(p1 net.Conn) {
 		backend = string(b[4 : n])
 		goto CONN
 	default:
-		replyAndClose(p1, 0x08) // X'08' Address type not supported
+		s5ReplyAndClose(p1, 0x08) // X'08' Address type not supported
 		return
 	}
 	port = strconv.Itoa(int(b[n-2])<<8 | int(b[n-1]))
@@ -70,20 +68,20 @@ CONN:
 
 		switch t := err.(type) {
 		case *net.AddrError:
-			replyAndClose(p1, 0x03) // X'03' Network unreachable
+			s5ReplyAndClose(p1, 0x03) // X'03' Network unreachable
 
 		case *net.OpError:
 			if t.Timeout() {
-				replyAndClose(p1, 0x06) // X'06' TTL expired
+				s5ReplyAndClose(p1, 0x06) // X'06' TTL expired
 			} else if t.Op == "dial" {
-				replyAndClose(p1, 0x05) // X'05' Connection refused
+				s5ReplyAndClose(p1, 0x05) // X'05' Connection refused
 			}
 
 		default:
-			//replyAndClose(p1, 0x03) // X'03' Network unreachable
-			//replyAndClose(p1, 0x04) // X'04' Host unreachable
-			replyAndClose(p1, 0x05) // X'05' Connection refused
-			//replyAndClose(p1, 0x06) // X'06' TTL expired
+			//s5ReplyAndClose(p1, 0x03) // X'03' Network unreachable
+			//s5ReplyAndClose(p1, 0x04) // X'04' Host unreachable
+			s5ReplyAndClose(p1, 0x05) // X'05' Connection refused
+			//s5ReplyAndClose(p1, 0x06) // X'06' TTL expired
 		}
 		return
 	}
@@ -98,7 +96,7 @@ CONN:
 }
 
 // p1 = socks5 client, p2 = fast server
-func HandleSocksF(p1, p2 net.Conn) {
+var HandleSocksF = func (p1, p2 net.Conn) {
 	var b [320]byte
 	n, err := p1.Read(b[:])
 	if err != nil {
@@ -114,7 +112,7 @@ func HandleSocksF(p1, p2 net.Conn) {
 
 	n, err = p1.Read(b[:])
 	if b[1] != 0x01 { // 0x01: CONNECT
-		replyAndClose(p1, 0x07) // X'07' Command not supported
+		s5ReplyAndClose(p1, 0x07) // X'07' Command not supported
 		return
 	}
 
@@ -123,7 +121,7 @@ func HandleSocksF(p1, p2 net.Conn) {
 	case 0x01: //IP V4
 //		backend = net.IPv4(b[4], b[5], b[6], b[7]).String()
 		if n != 10 {
-			replyAndClose(p1, 0x07) // X'07' Command not supported
+			s5ReplyAndClose(p1, 0x07) // X'07' Command not supported
 			return
 		}
 	case 0x03: //DOMAINNAME
@@ -131,11 +129,11 @@ func HandleSocksF(p1, p2 net.Conn) {
 	case 0x04: //IP V6
 //		backend = net.IP{b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15], b[16], b[17], b[18], b[19]}.String()
 		if n != 22 {
-			replyAndClose(p1, 0x07) // X'07' Command not supported
+			s5ReplyAndClose(p1, 0x07) // X'07' Command not supported
 			return
 		}
 	default:
-		replyAndClose(p1, 0x08) // X'08' Address type not supported
+		s5ReplyAndClose(p1, 0x08) // X'08' Address type not supported
 		return
 	}
 
@@ -147,12 +145,12 @@ func HandleSocksF(p1, p2 net.Conn) {
 	n2, err := p2.Read(b2[:10])
 	if n2 < 10 {
 //		Vln(2, "Dial err replay:", backend, n2)
-		replyAndClose(p1, 0x03)
+		s5ReplyAndClose(p1, 0x03)
 		return
 	}
 	if err != nil || b2[1] != 0x00 {
 //		Vln(2, "socks err to:", backend, n2, b2[1], err)
-		replyAndClose(p1, int(b2[1]))
+		s5ReplyAndClose(p1, int(b2[1]))
 		return
 	}
 

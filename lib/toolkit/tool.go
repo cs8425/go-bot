@@ -27,18 +27,18 @@ func init() {
 	}
 }
 
-func TrollConn(p1 net.Conn) {
+var TrollConn = func (p1 net.Conn) {
 	sec := time.Duration(disconnectMin + rand.Intn(disconnectRange)) * time.Millisecond
 	time.Sleep(sec)
 	p1.Close()
 }
 
-func SleepRand() {
+var SleepRand = func () {
 	sec := time.Duration(disconnectMin + rand.Intn(disconnectRange)) * time.Millisecond
 	time.Sleep(sec)
 }
 
-func Cp(p1, p2 net.Conn) {
+var Cp = func (p1, p2 net.Conn) {
 	// start tunnel
 	p1die := make(chan struct{})
 	go func() {
@@ -63,14 +63,14 @@ func Cp(p1, p2 net.Conn) {
 	}
 }
 
-func Cp1(p1 io.Reader, p2 io.Writer) {
+var Cp1 = func (p1 io.Reader, p2 io.Writer) {
 	buf := copyBuf.Get().([]byte)
 	io.CopyBuffer(p2, p1, buf) // p2 << p1
 	copyBuf.Put(buf)
 }
 
 // p1 >> p0 >> p2
-func Cp3(p1 io.Reader, p0 net.Conn, p2 io.Writer) {
+var Cp3 = func (p1 io.Reader, p0 net.Conn, p2 io.Writer) {
 	p1die := make(chan struct{})
 	go func() {
 		buf := copyBuf.Get().([]byte)
