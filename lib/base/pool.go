@@ -146,10 +146,18 @@ func (p *Pool) GetByUTag(UTag string) (data *Peer, ok bool) {
 	return data, ok
 }
 
-func (p *Pool) getList() ([]*Peer) {
-	peers := make([]*Peer, 0, len(p.m2P))
+func (p *Pool) getList() ([]*PeerInfo) {
+	peers := make([]*PeerInfo, 0, len(p.m2P))
 	for _, v := range p.m2P {
-		peers = append(peers, v)
+		addr := v.Conn.RemoteAddr().String()
+		p := &PeerInfo{
+			UUID: v.UUID,
+			Addr: addr,
+			UTag: fmt.Sprintf("%v/%v", kit.Hex(v.UUID), addr),
+			UpTime: v.UpTime,
+			RTT: v.Mux.GetRTT(),
+		}
+		peers = append(peers, p)
 	}
 	return peers
 }
@@ -168,37 +176,44 @@ func (p *Pool) getListStr(peers []*Peer) ([]string) {
 	return out
 }
 
-func (p *Pool) GetListByID() ([]string) {
+func (p *Pool) GetListByID() ([]*PeerInfo) {
 	p.lock.RLock()
 
 	peers := p.getList()
 	sort.Sort(ByID(peers))
-	out := p.getListStr(peers)
 
 	p.lock.RUnlock()
-	return out
+	return peers
 }
 
-func (p *Pool) GetListByAddr() ([]string) {
+func (p *Pool) GetListByAddr() ([]*PeerInfo) {
 	p.lock.RLock()
 
 	peers := p.getList()
 	sort.Sort(ByAddr(peers))
-	out := p.getListStr(peers)
 
 	p.lock.RUnlock()
-	return out
+	return peers
 }
 
-func (p *Pool) GetListByTime() ([]string) {
+func (p *Pool) GetListByTime() ([]*PeerInfo) {
 	p.lock.RLock()
 
 	peers := p.getList()
 	sort.Sort(ByTime(peers))
-	out := p.getListStr(peers)
 
 	p.lock.RUnlock()
-	return out
+	return peers
+}
+
+func (p *Pool) GetListByRTT() ([]*PeerInfo) {
+	p.lock.RLock()
+
+	peers := p.getList()
+	sort.Sort(ByRTT(peers))
+
+	p.lock.RUnlock()
+	return peers
 }
 
 func (p *Pool) Clear() {
@@ -209,7 +224,16 @@ func (p *Pool) Clear() {
 	p.lock.Unlock()
 }
 
+func (p *Pool) WriteListTo(conn net.Conn) (int) {
+	p.lock.RLock()
+	peers := p.getList()
+	p.lock.RUnlock()
 
+	v := PeerList(peers)
+	return v.WriteTo(conn)
+}
+
+// hub only
 type Peer struct {
 	id int32
 	UUID []byte
@@ -219,7 +243,99 @@ type Peer struct {
 	Info *Info
 }
 
-type ByID []*Peer
+// over hub and admin
+type PeerInfo struct {
+	UUID []byte
+	Addr string
+	UTag string
+	UpTime time.Time
+	RTT time.Duration
+}
+
+func (p *PeerInfo) String() (string) {
+	now := time.Now()
+	t := p.UpTime.Format(time.RFC3339)
+	t2 := now.Sub(p.UpTime).String()
+	return fmt.Sprintf("%v [%v](%v) %v", p.UTag, t, t2, p.RTT)
+}
+
+type PeerList []*PeerInfo
+func (p PeerList) WriteTo(conn net.Conn) (int) {
+	list := []*PeerInfo(p)
+	n := len(list)
+	kit.WriteVLen(conn, int64(n))
+	for _, v := range list {
+		kit.WriteVTagByte(conn, []byte(v.UTag))
+		kit.WriteVLen(conn, int64(v.RTT))
+		uptime, _ := v.UpTime.MarshalBinary()
+		kit.WriteTagByte(conn, uptime)
+	}
+	return n
+}
+func (p *PeerList) ReadFrom(conn net.Conn) (int, error) {
+	n, err := kit.ReadVLen(conn)
+	if err != nil {
+		return 0, err
+	}
+
+	list := make([]*PeerInfo, 0, n)
+	for i := 0; i < int(n); i++ {
+		utag, err := kit.ReadVTagByte(conn)
+		if err != nil {
+			break
+		}
+
+		rtt, err := kit.ReadVLen(conn)
+		if err != nil {
+			break
+		}
+
+		tbuf, err := kit.ReadTagByte(conn)
+		if err != nil {
+			break
+		}
+		uptime := time.Time{}
+		err = uptime.UnmarshalBinary(tbuf)
+		if err != nil {
+			continue
+		}
+
+		v := &PeerInfo{
+			UTag: string(utag),
+			RTT: time.Duration(rtt),
+			UpTime: uptime,
+		}
+
+		list = append(list, v)
+	}
+
+	*p = PeerList(list)
+
+	return int(n), err
+}
+
+func (p *PeerList) GetListByID() ([]*PeerInfo) {
+	sort.Sort(ByID([]*PeerInfo(*p)))
+	return []*PeerInfo(*p)
+}
+
+func (p *PeerList) GetListByAddr() ([]*PeerInfo) {
+	sort.Sort(ByAddr([]*PeerInfo(*p)))
+	return []*PeerInfo(*p)
+}
+
+func (p *PeerList) GetListByTime() ([]*PeerInfo) {
+	sort.Sort(ByTime([]*PeerInfo(*p)))
+	return []*PeerInfo(*p)
+}
+
+func (p *PeerList) GetListByRTT() ([]*PeerInfo) {
+	sort.Sort(ByRTT([]*PeerInfo(*p)))
+	return []*PeerInfo(*p)
+}
+
+
+type ByID []*PeerInfo
 func (s ByID) Len() int {
 	return len(s)
 }
@@ -227,10 +343,10 @@ func (s ByID) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 func (s ByID) Less(i, j int) bool {
-	return string(s[i].UUID) < string(s[j].UUID)
+	return s[i].UTag < s[j].UTag
 }
 
-type ByAddr []*Peer
+type ByAddr []*PeerInfo
 func (s ByAddr) Len() int {
     return len(s)
 }
@@ -238,10 +354,10 @@ func (s ByAddr) Swap(i, j int) {
     s[i], s[j] = s[j], s[i]
 }
 func (s ByAddr) Less(i, j int) bool {
-    return s[i].Conn.RemoteAddr().String() < s[j].Conn.RemoteAddr().String()
+    return s[i].Addr < s[j].Addr
 }
 
-type ByTime []*Peer
+type ByTime []*PeerInfo
 func (s ByTime) Len() int {
     return len(s)
 }
@@ -249,7 +365,18 @@ func (s ByTime) Swap(i, j int) {
     s[i], s[j] = s[j], s[i]
 }
 func (s ByTime) Less(i, j int) bool {
-    return s[i].UpTime.Before(s[j].UpTime)
+    return s[i].UpTime.Before(s[j].UpTime) // oldest first
+}
+
+type ByRTT []*PeerInfo
+func (s ByRTT) Len() int {
+    return len(s)
+}
+func (s ByRTT) Swap(i, j int) {
+    s[i], s[j] = s[j], s[i]
+}
+func (s ByRTT) Less(i, j int) bool {
+    return s[i].RTT < s[j].RTT
 }
 
 func NewPeer(p1 net.Conn, mux *smux.Session, UUID []byte) *Peer {

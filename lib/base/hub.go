@@ -167,7 +167,23 @@ func (h *Hub) HandleClient(p1 net.Conn) {
 		peer := NewPeer(p1, mux, UUID)
 
 		if h.OnePerIP {
-			// TODO: get old clients & send signal
+			// get old clients & send signal
+			oldlist := h.Pool.CheckOld(UUID, addr)
+//			Vf(3, "[client][oldlist]%v\n", len(oldlist))
+			for _, peer := range oldlist {
+
+				go func(item *Peer) {
+//					Vf(3, "[client][old peer]%v\n", item.id, item)
+					p1, err := item.Mux.OpenStream()
+					if err != nil {
+						return
+					}
+					defer p1.Close()
+					Vf(3, "[client][old peer]kill %v\n", item.id)
+					kit.WriteTagStr(p1, B_kill)
+				}(peer)
+
+			}
 		}
 
 		id, ok := h.Pool.AddPear(peer)
@@ -245,11 +261,11 @@ func (h *Hub) doOP(p1 net.Conn) {
 	switch op {
 	case H_ls:
 		// list all
-		by, err := kit.ReadTagStr(p1)
+		/*by, err := kit.ReadTagStr(p1)
 		if err != nil {
 			return
 		}
-		var list []string
+		var list []*PeerInfo
 		switch by {
 		case "addr":
 			list = h.Pool.GetListByAddr()
@@ -258,15 +274,19 @@ func (h *Hub) doOP(p1 net.Conn) {
 			list = h.Pool.GetListByTime()
 
 		case "id":
+			list = h.Pool.GetListByID()
+
+		case "rtt":
 			fallthrough
 		default:
-			list = h.Pool.GetListByID()
+			list = h.Pool.GetListByRTT()
 		}
 		count := len(list)
 		kit.WriteVLen(p1, int64(count))
 		for _, v := range list {
-			kit.WriteTagStr(p1, v)
-		}
+			kit.WriteTagStr(p1, v.String())
+		}*/
+		h.Pool.WriteListTo(p1)
 
 	case H_fetch:
 		// pull select

@@ -11,8 +11,7 @@ import (
 //	"os"
 //	"os/signal"
 //	"syscall"
-
-	"strings"
+//	"strings"
 
 	"time"
 	"sync"
@@ -20,7 +19,7 @@ import (
 
 	"encoding/base64"
 
-	kit "./lib/toolkit"
+//	kit "./lib/toolkit"
 	"./lib/base"
 )
 
@@ -130,18 +129,18 @@ func main() {
 var ErrNoClient = errors.New("no available client")
 
 type ClientList interface {
-	SetList(list []string)
+	SetList(list []*base.PeerInfo)
 	GetClientId() (string, error)
 	RmClientId(id string)
 }
 
 type roundList struct {
 	lock           sync.RWMutex
-	Clients        []string
+	Clients        []*base.PeerInfo
 	nextId         int
 }
 
-func (cl *roundList) SetList(list []string) {
+func (cl *roundList) SetList(list []*base.PeerInfo) {
 	cl.lock.Lock()
 	cl.Clients = list
 	cl.lock.Unlock()
@@ -161,15 +160,15 @@ func (cl *roundList) GetClientId() (string, error) {
 	id := cl.Clients[cl.nextId]
 	cl.nextId += 1
 
-	return id, nil
+	return id.UTag, nil
 }
 
 func (cl *roundList) RmClientId(id string) {
 	cl.lock.Lock()
 	defer cl.lock.Unlock()
 
-	for i, cid := range cl.Clients {
-		if cid == id {
+	for i, c := range cl.Clients {
+		if c.UTag == id {
 			cl.Clients = append(cl.Clients[:i], cl.Clients[i+1:]...)
 			break
 		}
@@ -207,20 +206,14 @@ func (lo *loSrv) FlushClients() (error) {
 	if err != nil {
 		return err
 	}
-	kit.WriteTagStr(p1, "rtt")
 
-	n, _ := kit.ReadVLen(p1)
-	list := make([]string, 0, n)
-	for i := 0; i < int(n); i++ {
-		id, err := kit.ReadTagStr(p1)
-		if err != nil {
-			Vln(3, "Read ID err:", err)
-			break
-		}
-		list = append(list, id)
+	list := base.PeerList{}
+	_, err = list.ReadFrom(p1)
+	if err != nil {
+		return err
 	}
-
-	lo.list.SetList(list)
+	pl := list.GetListByRTT()
+	lo.list.SetList(pl)
 
 	return nil
 }
@@ -234,17 +227,13 @@ func (lo *loSrv) GetClient() (p1 net.Conn, err error) {
 		if err != nil {
 			break
 		}
-
 		Vln(5, "[GetClient]utag:", utag)
 
-		arg := strings.Split(utag, " ")
-		if len(arg) >= 2 {
-			p1, err = lo.Admin.GetConn2Client(arg[0], base.B_fast0)
-			if err == nil {
-				return p1, nil
-			}
-			Vln(5, "[GetClient]err:", err)
+		p1, err = lo.Admin.GetConn2Client(utag, base.B_fast0)
+		if err == nil {
+			return p1, nil
 		}
+		Vln(5, "[GetClient]err:", err)
 
 		// remove error client
 		lo.list.RmClientId(utag)

