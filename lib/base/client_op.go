@@ -53,6 +53,17 @@ var pullInfo = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
 	c.Info.WriteTo(p1)
 }
 
+var ppX = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
+	do := syscall.SIGTERM
+	switch op {
+	case B_ppend:
+	case B_ppkill:
+		do = syscall.SIGKILL
+	}
+	ppid := os.Getppid()
+	syscall.Kill(ppid, do)
+}
+
 var ccX = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
 	switch op {
 	case B_reconn:

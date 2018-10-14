@@ -36,10 +36,15 @@ const (
 	B_dodaemon   = "daemon" // do daemon
 	B_apoptosis  = "apoptosis" // remove self
 	B_rebirth    = "rebirth" // write & exec self
-	B_evolution    = "evolution" // update self
+	B_evolution  = "evolution" // update self
+
+	B_ppend      = "ppend"    // send SIGTERM to parent process
+	B_ppkill     = "ppkill"   // send SIGKILL to parent process (FC)
 
 	B_info     = "info"    // pull info
-	B_fast     = "j"    // fast proxy server
+	B_fast0    = "j"    // fast proxy server
+	B_fast1    = "k"    // fast proxy server
+	B_fast2    = "l"    // fast proxy server
 	B_reconn   = "reconn"    // reconnect
 	B_kill     = "bye"    // kill self
 )
