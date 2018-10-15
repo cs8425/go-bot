@@ -147,19 +147,6 @@ bot [rm|call] $bot_id $exec`
 		if err != nil {
 			return
 		}
-		/*kit.WriteTagStr(p1, by)
-
-		n, _ := kit.ReadVLen(p1)
-		out += fmt.Sprintf("total=%v\n", n)
-		for i := 0; i < int(n); i++ {
-			id, err := kit.ReadTagStr(p1)
-			if err != nil {
-				Vln(3, "Read ID err:", err)
-				break
-			}
-			out += id + "\n"
-		}
-		out += fmt.Sprintf("total=%v\n", n)*/
 
 		list := base.PeerList{}
 		n, err := list.ReadFrom(p1)

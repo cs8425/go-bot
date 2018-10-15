@@ -261,31 +261,6 @@ func (h *Hub) doOP(p1 net.Conn) {
 	switch op {
 	case H_ls:
 		// list all
-		/*by, err := kit.ReadTagStr(p1)
-		if err != nil {
-			return
-		}
-		var list []*PeerInfo
-		switch by {
-		case "addr":
-			list = h.Pool.GetListByAddr()
-
-		case "time":
-			list = h.Pool.GetListByTime()
-
-		case "id":
-			list = h.Pool.GetListByID()
-
-		case "rtt":
-			fallthrough
-		default:
-			list = h.Pool.GetListByRTT()
-		}
-		count := len(list)
-		kit.WriteVLen(p1, int64(count))
-		for _, v := range list {
-			kit.WriteTagStr(p1, v.String())
-		}*/
 		h.Pool.WriteListTo(p1)
 
 	case H_fetch:

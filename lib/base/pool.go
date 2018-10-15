@@ -162,60 +162,6 @@ func (p *Pool) getList() ([]*PeerInfo) {
 	return peers
 }
 
-func (p *Pool) getListStr(peers []*Peer) ([]string) {
-	out := make([]string, 0, len(peers))
-	now := time.Now()
-	for _, peer := range peers {
-		UUID := peer.UUID
-		Addr := peer.Conn.RemoteAddr().String()
-		t := peer.UpTime.Format(time.RFC3339)
-		t2 := now.Sub(peer.UpTime).String()
-		tag := fmt.Sprintf("%v/%v [%v](%v)", kit.Hex([]byte(UUID)), Addr, t, t2)
-		out = append(out, tag)
-	}
-	return out
-}
-
-func (p *Pool) GetListByID() ([]*PeerInfo) {
-	p.lock.RLock()
-
-	peers := p.getList()
-	sort.Sort(ByID(peers))
-
-	p.lock.RUnlock()
-	return peers
-}
-
-func (p *Pool) GetListByAddr() ([]*PeerInfo) {
-	p.lock.RLock()
-
-	peers := p.getList()
-	sort.Sort(ByAddr(peers))
-
-	p.lock.RUnlock()
-	return peers
-}
-
-func (p *Pool) GetListByTime() ([]*PeerInfo) {
-	p.lock.RLock()
-
-	peers := p.getList()
-	sort.Sort(ByTime(peers))
-
-	p.lock.RUnlock()
-	return peers
-}
-
-func (p *Pool) GetListByRTT() ([]*PeerInfo) {
-	p.lock.RLock()
-
-	peers := p.getList()
-	sort.Sort(ByRTT(peers))
-
-	p.lock.RUnlock()
-	return peers
-}
-
 func (p *Pool) Clear() {
 	p.lock.Lock()
 	p.m2P = make(map[int32]*Peer)
@@ -297,7 +243,7 @@ func (p *PeerList) ReadFrom(conn net.Conn) (int, error) {
 		uptime := time.Time{}
 		err = uptime.UnmarshalBinary(tbuf)
 		if err != nil {
-			continue
+			uptime = time.Now()
 		}
 
 		v := &PeerInfo{
