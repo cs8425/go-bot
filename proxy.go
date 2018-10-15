@@ -12,6 +12,7 @@ import (
 //	"os/signal"
 //	"syscall"
 //	"strings"
+	"strconv"
 
 	"time"
 	"sync"
@@ -35,7 +36,182 @@ var webPort = flag.String("l", ":8888", "web UI listen on")
 
 var verbosity int = 2
 
-var local *loSrv
+var localservers SrvList
+var hubs HubList
+
+type HubList struct {
+	lock    sync.RWMutex
+	hubs    []*hubLink
+	nextid  int
+}
+
+func (hl *HubList) WriteList(w http.ResponseWriter) {
+	hl.lock.RLock()
+
+	fmt.Fprintf(w, "i\thid\taddr\n")
+	for i, hub := range hl.hubs {
+		fmt.Fprintf(w, "%v\t%v\t%v\n", i, hub.Id, hub.HubAddr)
+	}
+
+	hl.lock.RUnlock()
+}
+
+func (hl *HubList) Conn(hubaddr string) (*hubLink, error) {
+	hub, err := NewHubLinkConn(hubaddr)
+	if err != nil {
+		return nil, err
+	}
+
+	hl.lock.Lock()
+	hl.hubs = append(hl.hubs, hub)
+	hub.Id = hl.nextid
+	hl.nextid += 1
+
+	hl.lock.Unlock()
+	return hub, nil
+}
+
+func (hl *HubList) StopId(id int) (int, string) {
+	hl.lock.Lock()
+	defer hl.lock.Unlock()
+
+	for i, hub := range hl.hubs {
+		if id == hub.Id {
+			hub.Admin.Raw.Close()
+			hl.hubs = append(hl.hubs[:i], hl.hubs[i+1:]...)
+			return i, hub.HubAddr
+		}
+	}
+	return -1, "not found"
+}
+
+func (hl *HubList) GetId(id int) (*hubLink) {
+	hl.lock.RLock()
+	defer hl.lock.RUnlock()
+
+	for _, hub := range hl.hubs {
+		if id == hub.Id {
+			return hub
+		}
+	}
+	return nil
+}
+
+type SrvList struct {
+	lock    sync.RWMutex
+	srvs    []*loSrv
+}
+
+func (sl *SrvList) WriteList(w http.ResponseWriter) {
+	sl.lock.RLock()
+
+	fmt.Fprintf(w, "sid\tbind\tstarted\n")
+	for i, srv := range sl.srvs {
+		fmt.Fprintf(w, "%v\t%v\t%v\n", i, srv.BindAddr, srv.Lis != nil)
+	}
+
+	sl.lock.RUnlock()
+}
+
+func (sl *SrvList) Add(srv *loSrv) {
+	sl.lock.Lock()
+	sl.srvs = append(sl.srvs, srv)
+	sl.lock.Unlock()
+}
+
+func (sl *SrvList) Get(addr string) (*loSrv) {
+	sl.lock.RLock()
+	defer sl.lock.RUnlock()
+
+	for _, srv := range sl.srvs {
+		if addr == srv.BindAddr {
+			return srv
+		}
+	}
+	return nil
+}
+
+func (sl *SrvList) Stop(addr string) (int, string) {
+	sl.lock.Lock()
+	defer sl.lock.Unlock()
+
+	for i, srv := range sl.srvs {
+		if addr == srv.BindAddr {
+			srv.Close()
+			sl.srvs = append(sl.srvs[:i], sl.srvs[i+1:]...)
+			return i, srv.BindAddr
+		}
+	}
+	return -1, "not found"
+}
+
+func hubOP(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "HEAD":
+		return
+	default:
+	}
+
+	parms := r.URL.Query()
+	op := parms.Get("op")
+	switch op {
+	case "":
+		fallthrough
+	case "ls":
+		hubs.WriteList(w)
+		return
+	}
+
+	var hid int
+
+	err := r.ParseForm()
+	if err != nil {
+		goto BAD_REQ
+	}
+
+	hid, _ = strconv.Atoi(r.Form.Get("hid"))
+
+	switch op {
+	case "conn":
+//		addr := r.Form.Get("bind")
+		addr := parms.Get("bind")
+		if addr == "" {
+			goto BAD_REQ
+		}
+
+		hub, err := hubs.Conn(addr)
+		if err != nil {
+			goto BAD_REQ
+		}
+		fmt.Fprintf(w, "hid:%v", hub.Id)
+
+	case "stop":
+		idx, addr := hubs.StopId(hid)
+		fmt.Fprintf(w, "[stop]%v\t%v\t%v\n", idx, hid, addr)
+
+	case "flush":
+		hub := hubs.GetId(hid)
+		if hub == nil {
+			goto BAD_REQ
+		}
+		hub.FlushClients()
+
+	case "lsc":
+		hub := hubs.GetId(hid)
+		if hub == nil {
+			goto BAD_REQ
+		}
+		hub.WriteList(w)
+
+	default:
+		goto BAD_REQ
+	}
+	return
+
+BAD_REQ:
+	http.Error(w, "bad request", http.StatusBadRequest)
+	return
+}
 
 func srvOP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
@@ -44,44 +220,77 @@ func srvOP(w http.ResponseWriter, r *http.Request) {
 	default:
 	}
 
-	if r.Method != "POST" {
+	/*if r.Method != "POST" {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
+	}*/
+
+	parms := r.URL.Query()
+	op := parms.Get("op")
+	switch op {
+	case "":
+		fallthrough
+	case "ls":
+		localservers.WriteList(w)
+		return
 	}
+
+	var addr string
 
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, "bad request", http.StatusBadRequest)
+		goto BAD_REQ
+	}
+
+//	addr = r.Form.Get("bind")
+	addr = parms.Get("bind")
+	if addr == "" {
 		return
 	}
-	op := r.Form.Get("op")
+
 	switch op {
-	case "conn":
-		//addr := r.Form.Get("addr")
-
-
 	case "start":
-		//addr := r.Form.Get("addr")
+		hid, err := strconv.Atoi(r.Form.Get("hid"))
+		if err != nil {
+			goto BAD_REQ
+		}
+		hublink := hubs.GetId(hid)
+		if hublink == nil {
+			goto BAD_REQ
+		}
 
+		// TODO: select clients
+		go startSrv(hublink, addr)
+
+		fmt.Fprintf(w, "server start")
 
 	case "stop":
-		if local == nil {
-			return
-		}
-		local.Close()
-		local = nil
-
+		idx, addr := localservers.Stop(addr)
+		fmt.Fprintf(w, "[stop]%v\t%v\n", idx, addr)
 
 	case "mode":
 	case "flush":
-		if local == nil {
-			return
+		lo := localservers.Get(addr)
+		if lo == nil {
+			goto BAD_REQ
 		}
-		local.FlushClients()
+		lo.FlushClients()
+
+	case "lsc":
+		lo := localservers.Get(addr)
+		if lo == nil {
+			goto BAD_REQ
+		}
+		lo.list.WriteList(w)
+
 	default:
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
+		goto BAD_REQ
 	}
+	return
+
+BAD_REQ:
+	http.Error(w, "bad request", http.StatusBadRequest)
+	return
 }
 
 func main() {
@@ -91,39 +300,33 @@ func main() {
 		std.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	}
 
-	go startBG(*huburl, *port)
+	hublink, err := hubs.Conn(*huburl)
+	if err != nil {
+		Vln(1, "connect err", err)
+		return
+	}
+	go startSrv(hublink, *port)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
-		if local == nil {
-			return
-		}
-
-		local.lock.RLock()
-		list := local.list.(*roundList)
-		local.lock.RUnlock()
-
-		list.lock.RLock()
-		defer list.lock.RUnlock()
-
-		fmt.Fprintf(w, "count:%d\n", len(list.Clients))
-		for _, utag := range list.Clients {
-			fmt.Fprintf(w, "%s\n", utag)
-		}
+	mux.HandleFunc("/jquery.min.js", func (w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "www/jquery.min.js")
 	})
+	mux.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "www/index.html")
+	})
+	//mux.Handle("/r/", http.StripPrefix("/r/", http.FileServer(http.Dir(config.ResDir))))
+	mux.HandleFunc("/api/hub", hubOP)
 	mux.HandleFunc("/api/srv", srvOP)
-	//mux.HandleFunc("/api/bot", botCtrl)
-
+	//mux.HandleFunc("/api/bot", botOP)
 
 	srv := &http.Server{Addr: *webPort, Handler: mux}
 
 	log.Printf("[server] HTTP server Listen on: %v", *webPort)
-	err := srv.ListenAndServe()
+	err = srv.ListenAndServe()
 	if err != http.ErrServerClosed {
 		log.Printf("[server] ListenAndServe error: %v", err)
 	}
 }
-
 
 
 var ErrNoClient = errors.New("no available client")
@@ -132,6 +335,8 @@ type ClientList interface {
 	SetList(list []*base.PeerInfo)
 	GetClientId() (string, error)
 	RmClientId(id string)
+
+	WriteList(w http.ResponseWriter) // web api
 }
 
 type roundList struct {
@@ -175,17 +380,87 @@ func (cl *roundList) RmClientId(id string) {
 	}
 }
 
-type loSrv struct {
-	lock           sync.RWMutex
-	Admin          *base.Auth
-	Lis            net.Listener
+func (cl *roundList) WriteList(w http.ResponseWriter) {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
 
-	list           ClientList
+	fmt.Fprintf(w, "count:%d\n", len(cl.Clients))
+	for _, c := range cl.Clients {
+		fmt.Fprintf(w, "%s\n", c.String())
+	}
 }
 
-func NewLoSrv(admin *base.Auth) (*loSrv) {
-	lo := loSrv{
+type hubLink struct {
+	lock           sync.RWMutex
+	HubAddr        string
+	Admin          *base.Auth
+	Clients        []*base.PeerInfo
+	Id             int
+}
+
+func (hl *hubLink) FlushClients() ([]*base.PeerInfo, error) {
+	hl.lock.Lock()
+	defer hl.lock.Unlock()
+
+	p1, err := hl.Admin.GetConn(base.H_ls)
+	if err != nil {
+		return nil, err
+	}
+
+	list := base.PeerList{}
+	_, err = list.ReadFrom(p1)
+	if err != nil {
+		return nil, err
+	}
+	hl.Clients = list.GetListByRTT()
+
+	return hl.Clients, nil
+}
+
+func (hl *hubLink) WriteList(w http.ResponseWriter) {
+	hl.lock.RLock()
+	defer hl.lock.RUnlock()
+
+	fmt.Fprintf(w, "count:%d\n", len(hl.Clients))
+	for _, c := range hl.Clients {
+		fmt.Fprintf(w, "%s\n", c.String())
+	}
+}
+
+func NewHubLinkConn(hubaddr string) (*hubLink, error) {
+	admin := base.NewAuth()
+	admin.HubPubKey = hubPubKey
+	admin.Private_ECDSA = private_ECDSA
+
+	_, err := admin.CreateConn(hubaddr)
+	if err != nil {
+		return nil, err
+	}
+
+	h := NewHubLink(hubaddr, admin)
+	return h, nil
+}
+
+func NewHubLink(hubaddr string, admin *base.Auth) (*hubLink) {
+	h := hubLink{
+		HubAddr: hubaddr,
 		Admin: admin,
+	}
+	return &h
+}
+
+type loSrv struct {
+	lock           sync.RWMutex
+	BindAddr       string
+	Link           *hubLink
+	Lis            net.Listener
+
+	list           ClientList // for selected clients
+}
+
+func NewLoSrv(hub *hubLink) (*loSrv) {
+	lo := loSrv{
+		Link: hub,
 		list: &roundList{},
 	}
 	return &lo
@@ -195,27 +470,28 @@ func (lo *loSrv) Close() (error) {
 	lo.lock.Lock()
 	defer lo.lock.Unlock()
 
-	return lo.Admin.Raw.Close()
+	err := lo.Lis.Close()
+	if err == nil {
+		lo.Lis = nil
+	}
+
+	return err
 }
 
-func (lo *loSrv) FlushClients() (error) {
-	lo.lock.RLock()
-	defer lo.lock.RUnlock()
+func (lo *loSrv) FlushClients() ([]*base.PeerInfo, error) {
+	lo.lock.Lock()
+	defer lo.lock.Unlock()
 
-	p1, err := lo.Admin.GetConn(base.H_ls)
+	pl, err := lo.Link.FlushClients()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	list := base.PeerList{}
-	_, err = list.ReadFrom(p1)
-	if err != nil {
-		return err
-	}
-	pl := list.GetListByRTT()
-	lo.list.SetList(pl)
+	lst := make([]*base.PeerInfo, len(pl), len(pl))
+	copy(lst, pl)
+	lo.list.SetList(lst)
 
-	return nil
+	return lst, nil
 }
 
 func (lo *loSrv) GetClient() (p1 net.Conn, err error) {
@@ -229,7 +505,7 @@ func (lo *loSrv) GetClient() (p1 net.Conn, err error) {
 		}
 		Vln(5, "[GetClient]utag:", utag)
 
-		p1, err = lo.Admin.GetConn2Client(utag, base.B_fast0)
+		p1, err = lo.Link.Admin.GetConn2Client(utag, base.B_fast0)
 		if err == nil {
 			return p1, nil
 		}
@@ -242,17 +518,17 @@ func (lo *loSrv) GetClient() (p1 net.Conn, err error) {
 	return nil, ErrNoClient
 }
 
-func (lo *loSrv) StartSocks(addr string) {
-	lis, err := net.Listen("tcp", addr)
+func (lo *loSrv) StartSocks() {
+	lis, err := net.Listen("tcp", lo.BindAddr)
 	if err != nil {
 		Vln(2, "[local]Error listening:", err.Error())
 		return
 	}
 	defer lis.Close()
 
-	local.lock.Lock()
-	local.Lis = lis
-	local.lock.Unlock()
+	lo.lock.Lock()
+	lo.Lis = lis
+	lo.lock.Unlock()
 
 	for {
 		if conn, err := lis.Accept(); err == nil {
@@ -279,25 +555,14 @@ func (lo *loSrv) handleClient(p0 net.Conn) {
 
 	// do socks5
 	base.HandleSocksF(p0, p1)
-
-	return
 }
 
+func startSrv(hublink *hubLink,localport string) {
+	srv := NewLoSrv(hublink)
+	srv.BindAddr = localport
+	mux := srv.Link.Admin.Sess
 
-
-func startBG(hubaddr string, localport string) {
-	admin := base.NewAuth()
-	admin.HubPubKey = hubPubKey
-	admin.Private_ECDSA = private_ECDSA
-	admin.Public_ECDSA = public_ECDSA // not used
-
-	mux, err := admin.CreateConn(hubaddr)
-	if err != nil {
-		Vln(1, "connect err", err)
-		return
-	}
-
-	local = NewLoSrv(admin)
+	localservers.Add(srv)
 
 	// check connection to hub
 	go func(){
@@ -311,14 +576,14 @@ func startBG(hubaddr string, localport string) {
 		}
 	}()
 
-	go local.StartSocks(localport)
+	go srv.StartSocks()
 
+	// TODO: better update & exit check
 	for {
-		local.FlushClients()
-		/*for i, utag := range local.Clients {
-			Vln(5, "[FlushClients]utag:", i, utag)
-		}*/
-
+		_, err := srv.FlushClients()
+		if err != nil {
+			return
+		}
 		time.Sleep(30 * time.Second)
 	}
 }
