@@ -222,6 +222,10 @@ bot [rm|call] $bot_id $exec`
 		fallthrough
 	case "kill":
 		fallthrough
+	case "ppkill":
+		fallthrough
+	case "ppend":
+		fallthrough
 	case "reconn":
 		if len(args) < 2 {
 			hasout, out = true, "not enough"
@@ -233,49 +237,14 @@ bot [rm|call] $bot_id $exec`
 			"bg":  base.B_dodaemon,
 			"ddd":  base.B_apoptosis,
 			"zero":  base.B_rebirth,
+			"ppkill":  base.B_ppkill,
+			"ppend":  base.B_ppend,
 		}
 		hasout, out = true, "ok...\n"
 		_, err := admin.GetConn2Client(args[1], opcode[args[0]])
 		if err != nil {
 			out = "err...\n"
 		}
-
-	case "put":
-		if len(args) < 3 {
-			hasout, out = true, "not enough"
-			return
-		}
-		hasout, out = true, "ok...\n"
-
-		id := args[1]
-		input := args[2]
-		output := args[2]
-		if len(args) > 4 {
-			output = args[3]
-		}
-
-		p1, err := admin.GetConn2Client(id, base.B_push)
-		if err != nil {
-			out = fmt.Sprintf("[put][err][%v]%v\n", 1, err)
-			return
-		}
-		defer p1.Close()
-
-		fd, err := os.OpenFile(input, os.O_RDONLY, 0400)
-		if err != nil {
-			out = fmt.Sprintf("[put][err][%v][err]%v\n", 2, err)
-			return
-		}
-		defer fd.Close()
-
-		kit.WriteVTagByte(p1, []byte(output))
-		hashb, err := kit.IOHash(fd, p1)
-		if err != nil {
-			out = fmt.Sprintf("[put][err][%v][err]%v\n", 3, err)
-			return
-		}
-		fmt.Println("[put]", kit.Hex(hashb))
-		out = fmt.Sprintf("\n[put][ok][%v]%v\n", id, kit.Hex(hashb))
 
 	case "update":
 		if len(args) < 3 {
@@ -313,6 +282,45 @@ bot [rm|call] $bot_id $exec`
 		fmt.Println("[update]", kit.Hex(hashb))
 		out = fmt.Sprintf("\n[update][ok][%v]%v\n", id, kit.Hex(hashb))
 
+	case "put":
+		if len(args) < 3 {
+			hasout, out = true, "not enough"
+			return
+		}
+		hasout, out = true, "ok...\n"
+
+		id := args[1]
+		input := args[2]
+		output := args[2]
+		if len(args) > 4 {
+			output = args[3]
+		}
+
+		p1, err := admin.GetConn2Client(id, base.B_fs)
+		if err != nil {
+			out = fmt.Sprintf("[put][err][%v]%v\n", 1, err)
+			return
+		}
+		defer p1.Close()
+
+		kit.WriteTagStr(p1, base.B_push)
+
+		fd, err := os.OpenFile(input, os.O_RDONLY, 0400)
+		if err != nil {
+			out = fmt.Sprintf("[put][err][%v][err]%v\n", 2, err)
+			return
+		}
+		defer fd.Close()
+
+		kit.WriteVTagByte(p1, []byte(output))
+		hashb, err := kit.IOHash(fd, p1)
+		if err != nil {
+			out = fmt.Sprintf("[put][err][%v][err]%v\n", 3, err)
+			return
+		}
+		fmt.Println("[put]", kit.Hex(hashb))
+		out = fmt.Sprintf("\n[put][ok][%v]%v\n", id, kit.Hex(hashb))
+
 	case "call":
 		fallthrough
 	case "rm":
@@ -334,11 +342,14 @@ bot [rm|call] $bot_id $exec`
 		id := args[1]
 		fp := args[2]
 
-		p1, err := admin.GetConn2Client(id, op)
+		p1, err := admin.GetConn2Client(id, base.B_fs)
 		if err != nil {
+			out = "client op not found...\n"
 			return
 		}
 		defer p1.Close()
+
+		kit.WriteTagStr(p1, op)
 
 		kit.WriteVTagByte(p1, []byte(fp))
 		ret64, err := kit.ReadVLen(p1)

