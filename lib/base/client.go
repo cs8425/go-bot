@@ -10,13 +10,10 @@ import (
 	"runtime"
 	"syscall"
 	"crypto/rand"
-	"strings"
 
 	kit "../toolkit"
 	"../streamcoder"
 	"../smux"
-
-	"fmt"
 )
 
 var ops = make(map[string](func (string, net.Conn, *Client, *smux.Session)()))
@@ -86,36 +83,6 @@ func (c *Client) Start(addr string) {
 	}
 
 	runtime.GOMAXPROCS(c.Proc)
-
-	c.Info.Set("NumCPU", fmt.Sprintf("%v", runtime.NumCPU()))
-
-	lines, _ := kit.ReadLines("/proc/cpuinfo")
-	for _, line := range lines {
-		fields := strings.Split(line, ":")
-		if len(fields) < 2 {
-			continue
-		}
-		key := strings.TrimSpace(fields[0])
-		value := strings.TrimSpace(fields[1])
-
-		switch key {
-
-		case "model name", "Hardware":
-			// ARM : Hardware = Qualcomm Technologies, Inc MSM8939
-			// x86: model name = Intel(R) Core(TM) i7-4710HQ CPU @ 2.50GHz
-			c.Info.Set("ModelName", value)
-		case "flags":
-			flist := strings.FieldsFunc(value, func(r rune) bool {
-				return r == ',' || r == ' '
-			})
-			c.Info.Set("flags", strings.Join(flist, ","))
-
-
-		case "vendorId", "vendor_id", "Processor": // x86, x86, arm
-			// ARM : ARMv7 Processor rev 1 (v7l)
-			c.Info.Set("VendorID", value)
-		}
-	}
 
 	createConn := func() (session *smux.Session, err error) {
 

