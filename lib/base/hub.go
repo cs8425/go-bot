@@ -74,7 +74,7 @@ func NewHubM() (*Hub) {
 }
 
 func (h *Hub) DefIKey(keylen int, keybyte []byte) {
-	h.IKeys[initKeyTag] = newRSAPrivKeyBase64(keylen, keybyte)
+	h.IKeys[h.HubKeyTag] = newRSAPrivKeyBase64(keylen, keybyte)
 }
 func (h *Hub) AddIKey(tag string, keylen int, keybyte []byte) {
 	h.IKeys[tag] = newRSAPrivKeyBase64(keylen, keybyte)
@@ -146,6 +146,7 @@ func (h *Hub) HandleClient(p1 net.Conn) {
 		Vln(3, "Read agent err:", err)
 		return
 	}
+	//Vln(5, "agent:", agent)
 
 	// client
 	cok, ok := h.CTags[agent]
@@ -195,6 +196,7 @@ func (h *Hub) HandleClient(p1 net.Conn) {
 
 		// hack for OnClose
 		for {
+			// TODO: random pull info
 			_, err := mux.AcceptStream()
 			if err != nil {
 				mux.Close()

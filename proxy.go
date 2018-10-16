@@ -152,17 +152,8 @@ func hubOP(w http.ResponseWriter, r *http.Request) {
 	default:
 	}
 
-	parms := r.URL.Query()
-	op := parms.Get("op")
-	switch op {
-	case "":
-		fallthrough
-	case "ls":
-		hubs.WriteList(w)
-		return
-	}
-
 	var hid int
+	var op string
 
 	err := r.ParseForm()
 	if err != nil {
@@ -170,11 +161,16 @@ func hubOP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hid, _ = strconv.Atoi(r.Form.Get("hid"))
+	op = r.Form.Get("op")
 
 	switch op {
+	case "":
+		fallthrough
+	case "ls":
+		hubs.WriteList(w)
+
 	case "conn":
-//		addr := r.Form.Get("bind")
-		addr := parms.Get("bind")
+		addr := r.Form.Get("bind")
 		if addr == "" {
 			goto BAD_REQ
 		}
@@ -220,13 +216,15 @@ func srvOP(w http.ResponseWriter, r *http.Request) {
 	default:
 	}
 
-	/*if r.Method != "POST" {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}*/
+	var addr string
+	var op string
 
-	parms := r.URL.Query()
-	op := parms.Get("op")
+	err := r.ParseForm()
+	if err != nil {
+		goto BAD_REQ
+	}
+
+	op = r.Form.Get("op")
 	switch op {
 	case "":
 		fallthrough
@@ -235,17 +233,9 @@ func srvOP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var addr string
-
-	err := r.ParseForm()
-	if err != nil {
-		goto BAD_REQ
-	}
-
-//	addr = r.Form.Get("bind")
-	addr = parms.Get("bind")
+	addr = r.Form.Get("bind")
 	if addr == "" {
-		return
+		goto BAD_REQ
 	}
 
 	switch op {
@@ -432,7 +422,13 @@ func NewHubLinkConn(hubaddr string) (*hubLink, error) {
 	admin.HubPubKey = hubPubKey
 	admin.Private_ECDSA = private_ECDSA
 
-	_, err := admin.CreateConn(hubaddr)
+	// TODO: other transport layer
+	conn, err := net.Dial("tcp", hubaddr)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = admin.InitConn(conn)
 	if err != nil {
 		return nil, err
 	}
@@ -557,7 +553,7 @@ func (lo *loSrv) handleClient(p0 net.Conn) {
 	base.HandleSocksF(p0, p1)
 }
 
-func startSrv(hublink *hubLink,localport string) {
+func startSrv(hublink *hubLink, localport string) {
 	srv := NewLoSrv(hublink)
 	srv.BindAddr = localport
 	mux := srv.Link.Admin.Sess

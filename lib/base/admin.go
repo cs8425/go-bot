@@ -31,15 +31,17 @@ func NewAuth() (*Auth) {
 	}
 }
 
-func (a *Auth) CreateConn(hubAddr string) (*smux.Session, error) {
-
-	var conn net.Conn
-	var err error
-
-	conn, err = net.Dial("tcp", hubAddr)
+/*func (a *Auth) CreateConn(hubAddr string) (*smux.Session, error) {
+	conn, err := net.Dial("tcp", hubAddr)
 	if err != nil {
 		return nil, errors.New("createConn():" + err.Error())
 	}
+
+	return a.InitConn(conn)
+}*/
+
+func (a *Auth) InitConn(conn net.Conn) (*smux.Session, error) {
+	var err error
 
 	// do handshake
 	encKey := make([]byte, 88, 88)

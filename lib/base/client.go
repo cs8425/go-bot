@@ -74,7 +74,6 @@ var initOps = func () {
 	ops[B_fast1] = fastC
 	ops[B_fast2] = fastC
 
-	ops[B_shs] = sh
 	ops[B_shk] = sh
 	ops[B_csh] = sh
 
