@@ -32,8 +32,12 @@ type Client struct {
 	Daemon     bool
 	AutoClean  bool
 	Info       *Info
-	selfbyte []byte
-	selfhex []byte
+
+	binMx      sync.Mutex
+	selfbyte   []byte
+	selfhex    []byte
+	selfbyte1  []byte
+	selfhex1   []byte
 }
 
 func NewClient() (*Client) {

