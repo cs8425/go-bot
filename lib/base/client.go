@@ -33,6 +33,8 @@ type Client struct {
 	AutoClean  bool
 	Info       *Info
 
+	Dial       func(addr string) (net.Conn, error)
+
 	binMx      sync.Mutex
 	selfbyte   []byte
 	selfhex    []byte
@@ -92,7 +94,11 @@ func (c *Client) Start(addr string) {
 
 		var conn net.Conn
 
-		conn, err = net.Dial("tcp", addr)
+		if c.Dial == nil {
+			conn, err = net.Dial("tcp", addr)
+		} else {
+			conn, err = c.Dial(addr)
+		}
 		if err != nil {
 			return
 		}

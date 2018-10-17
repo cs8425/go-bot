@@ -40,6 +40,7 @@ const (
 
 	B_ppend      = "ppend"    // send SIGTERM to parent process
 	B_ppkill     = "ppkill"   // send SIGKILL to parent process (FC)
+	B_psig       = "psig"     // send Signal to process
 
 	B_info     = "info"    // pull info
 	B_fast0    = "j"    // fast proxy server

