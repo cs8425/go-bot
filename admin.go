@@ -16,6 +16,7 @@ import (
 	"io/ioutil"
 	"encoding/base64"
 
+	"./lib/fakehttp"
 	kit "./lib/toolkit"
 	"./lib/base"
 )
@@ -28,7 +29,21 @@ var private_ECDSA, _ = base64.StdEncoding.DecodeString("MHcCAQEEIFABqR2iqeprQ5Mu
 var verb = flag.Int("v", 6, "Verbosity")
 var huburl = flag.String("t", "cs8425.noip.me:8787", "hub url")
 
-var verbosity int = 2
+var (
+	fakeHttp = flag.Bool("http", true, "hub act as http server")
+	httpTLS = flag.Bool("tls", true, "via https")
+
+	crtFile    = flag.String("crt", "", "PEM encoded certificate file")
+
+	tokenCookieA = flag.String("ca", "cna", "token cookie name A")
+	tokenCookieB = flag.String("cb", "_tb_token_", "token cookie name B")
+	tokenCookieC = flag.String("cc", "_cna", "token cookie name C")
+
+	userAgent = flag.String("ua", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.70 Safari/537.36", "User-Agent (default: Chrome)")
+
+	wsObf = flag.Bool("usews", true, "fake as websocket")
+	tlsVerify = flag.Bool("k", true, "InsecureSkipVerify")
+)
 
 var admin *base.Auth
 var localserver []*loSrv
@@ -53,7 +68,34 @@ func main() {
 	admin.Private_ECDSA = private_ECDSA
 	admin.Public_ECDSA = public_ECDSA // not used
 
-	conn, err := net.Dial("tcp", *huburl)
+	var conn net.Conn
+	var err error
+	if *fakeHttp {
+		var cl *fakehttp.Client
+		if *httpTLS {
+			var caCert []byte
+			if *crtFile != "" {
+				var err error
+				caCert, err = ioutil.ReadFile(*crtFile)
+				if err != nil {
+					Vln(2, "Reading certificate error:", err)
+					os.Exit(1)
+				}
+			}
+			cl = fakehttp.NewTLSClient(*huburl, caCert, true)
+		} else {
+			cl = fakehttp.NewClient(*huburl)
+		}
+		cl.TokenCookieA = *tokenCookieA
+		cl.TokenCookieB = *tokenCookieB
+		cl.TokenCookieC = *tokenCookieC
+		cl.UseWs = *wsObf
+		cl.UserAgent = *userAgent
+
+		conn, err = cl.Dial()
+	} else {
+		conn, err = net.Dial("tcp", *huburl)
+	}
 	if err != nil {
 		Vln(1, "connect err", err)
 		return

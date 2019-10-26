@@ -7,6 +7,8 @@ import (
 
 var std = log.New(os.Stdout, "", log.LstdFlags)
 
+var verbosity int = 2
+
 func Vf(level int, format string, v ...interface{}) {
 	if level <= verbosity {
 		std.Printf(format, v...)

