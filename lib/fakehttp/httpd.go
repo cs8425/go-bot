@@ -212,6 +212,13 @@ func (srv *Server) handleBase(w http.ResponseWriter, r *http.Request)  {
 }
 
 func (srv *Server) handleWs(w http.ResponseWriter, r *http.Request, token string, flag string, cc *state)  {
+//	for k, v := range r.Header {
+//		Vlogln(4, "[ws]", k, v)
+//	}
+//	ip := r.Header.Get("X-Forwarded-For")
+//	Vlogln(4, "X-Forwarded-For", ip)
+	ip := r.Header.Get("Cf-Connecting-Ip")
+
 	hj, ok := w.(http.Hijacker)
 	if !ok {
 		Vlogln(2, "hijacking err1:", ok)
@@ -234,7 +241,7 @@ func (srv *Server) handleWs(w http.ResponseWriter, r *http.Request, token string
 	if r.Method == srv.RxMethod && flag == srv.RxFlag  {
 		Vlogln(2, token, " <-> client")
 		srv.rmToken(token)
-		srv.accepts <- conn
+		srv.accepts <- mkConnAddr(conn, ip)
 	}
 	Vlogln(3, "ws init end")
 }
@@ -280,10 +287,17 @@ func (srv *Server) handleNonWs(w http.ResponseWriter, r *http.Request, token str
 	if cc.connR != nil && cc.connW != nil {
 		srv.rmToken(token)
 
+//		for k, v := range r.Header {
+//			Vlogln(4, "[ws]", k, v)
+//		}
+//		ip := r.Header.Get("X-Forwarded-For")
+//		Vlogln(4, "X-Forwarded-For", ip)
+		ip := r.Header.Get("Cf-Connecting-Ip")
+
 		n := cc.bufR.Reader.Buffered()
 		buf := make([]byte, n)
 		cc.bufR.Reader.Read(buf[:n])
-		srv.accepts <- mkconn(cc.connR, cc.connW, buf[:n])
+		srv.accepts <- mkConnAddr(mkconn(cc.connR, cc.connW, buf[:n]), ip)
 	}
 	Vlogln(3, "non-ws init end")
 }

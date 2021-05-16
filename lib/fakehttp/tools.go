@@ -84,6 +84,39 @@ func mkconn(p1 net.Conn, p2 net.Conn, rbuf []byte) (net.Conn){
 	return pipe
 }
 
+type ConnAddr struct {
+	net.Conn //io.WriteCloser
+	Addr string
+}
+func (c *ConnAddr) RemoteAddr() net.Addr {
+	return (*StrAddr)(c)
+}
+
+type StrAddr ConnAddr
+func (c *StrAddr) Network() string {
+	return c.Conn.RemoteAddr().Network()
+}
+func (c *StrAddr) String() string {
+	if c == nil {
+		return "<nil>"
+	}
+	if c.Addr == "" {
+		return c.Conn.RemoteAddr().String()
+	}
+	return c.Addr
+}
+
+func mkConnAddr(p1 net.Conn, address string) (net.Conn) {
+	if address != "" {
+		conn := &ConnAddr{
+			Conn: p1,
+			Addr: address,
+		}
+		return conn
+	}
+	return p1
+}
+
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/-_"
 func randStringBytes(n int) string {
 	b := make([]byte, n)
