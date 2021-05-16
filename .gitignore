@@ -6,7 +6,11 @@
 .vs/
 
 admin/admin
-bot/bot
-hub/hub
+admin/admin.*
 proxy/proxy
+proxy/proxy.*
+bot/bot
+bot/bot.*
+hub/hub
+hub/hub.*
 
