@@ -21,9 +21,10 @@ import (
 	"io/ioutil"
 	"encoding/base64"
 
-	"./lib/fakehttp"
-//	kit "./lib/toolkit"
-	"./lib/base"
+	"lib/fakehttp"
+//	kit "local/toolkit"
+	"local/base"
+	vlog "local/log"
 )
 
 
@@ -301,14 +302,14 @@ BAD_REQ:
 
 func main() {
 	flag.Parse()
-	verbosity = *verb
-	if verbosity > 3 {
-		std.SetFlags(log.LstdFlags | log.Lmicroseconds)
+	vlog.Verbosity = *verb
+	if vlog.Verbosity > 3 {
+		vlog.Std.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	}
 
 	hublink, err := hubs.Conn(*huburl)
 	if err != nil {
-		Vln(1, "connect err", err)
+		vlog.Vln(1, "connect err", err)
 		return
 	}
 	go startSrv(hublink, *port)
@@ -449,7 +450,7 @@ func NewHubLinkConn(hubaddr string) (*hubLink, error) {
 				var err error
 				caCert, err = ioutil.ReadFile(*crtFile)
 				if err != nil {
-					Vln(2, "Reading certificate error:", err)
+					vlog.Vln(2, "Reading certificate error:", err)
 					return nil, err
 				}
 			}
@@ -542,13 +543,13 @@ func (lo *loSrv) GetClient() (p1 net.Conn, err error) {
 		if err != nil {
 			break
 		}
-		Vln(5, "[GetClient]utag:", utag)
+		vlog.Vln(5, "[GetClient]utag:", utag)
 
 		p1, err = lo.Link.Admin.GetConn2Client(utag, base.B_fast0)
 		if err == nil {
 			return p1, nil
 		}
-		Vln(5, "[GetClient]err:", err)
+		vlog.Vln(5, "[GetClient]err:", err)
 
 		// remove error client
 		lo.list.RmClientId(utag)
@@ -560,7 +561,7 @@ func (lo *loSrv) GetClient() (p1 net.Conn, err error) {
 func (lo *loSrv) StartSocks() {
 	lis, err := net.Listen("tcp", lo.BindAddr)
 	if err != nil {
-		Vln(2, "[local]Error listening:", err.Error())
+		vlog.Vln(2, "[local]Error listening:", err.Error())
 		return
 	}
 	defer lis.Close()
@@ -571,10 +572,10 @@ func (lo *loSrv) StartSocks() {
 
 	for {
 		if conn, err := lis.Accept(); err == nil {
-			Vln(2, "[local][new]", conn.RemoteAddr())
+			vlog.Vln(2, "[local][new]", conn.RemoteAddr())
 			go lo.handleClient(conn)
 		} else {
-			Vln(2, "[local]Accept err", err)
+			vlog.Vln(2, "[local]Accept err", err)
 			return
 		}
 	}
@@ -582,12 +583,12 @@ func (lo *loSrv) StartSocks() {
 
 func (lo *loSrv) handleClient(p0 net.Conn) {
 	defer p0.Close()
-	//Vln(2, "socksv5")
+	//vlog.Vln(2, "socksv5")
 
 	// select client
 	p1, err := lo.GetClient()
 	if err != nil {
-		Vln(3, "socks5 err", err)
+		vlog.Vln(3, "socks5 err", err)
 		return
 	}
 	defer p1.Close()
@@ -609,7 +610,7 @@ func startSrv(hublink *hubLink, localport string) {
 			_, err := mux.AcceptStream()
 			if err != nil {
 				mux.Close()
-				Vln(2, "connection to hub reset!!")
+				vlog.Vln(2, "connection to hub reset!!")
 				break
 			}
 		}

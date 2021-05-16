@@ -6,9 +6,9 @@ import (
 	"crypto/rand"
 	"errors"
 
-	kit "../toolkit"
-	"../streamcoder"
-	"../smux"
+	kit "local/toolkit"
+	"local/streamcoder"
+	"lib/smux"
 )
 
 var ErrReturn = errors.New("Error Return Code")

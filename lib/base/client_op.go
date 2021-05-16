@@ -4,8 +4,8 @@ import (
 	"net"
 	"os"
 
-	kit "../toolkit"
-	"../smux"
+	kit "local/toolkit"
+	"lib/smux"
 )
 
 func init() {

@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"crypto/rand"
 
-	kit "../toolkit"
-	"../streamcoder"
-	"../smux"
+	kit "local/toolkit"
+	"local/streamcoder"
+	"lib/smux"
 )
 
 var ops = make(map[string](func (string, net.Conn, *Client, *smux.Session)()))

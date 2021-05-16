@@ -6,7 +6,7 @@ import (
 //	"io"
 	"net"
 	"time"
-	chacha "../chacha20"
+	chacha "lib/chacha20"
 )
 
 type Coder struct {

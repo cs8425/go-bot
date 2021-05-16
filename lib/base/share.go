@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	kit "../toolkit"
+	kit "local/toolkit"
 
 //	"fmt"
 	"log"

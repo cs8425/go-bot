@@ -1,0 +1,12 @@
+.DS_Store
+*.swp
+.project
+.idea/
+.vscode/
+.vs/
+
+admin/admin
+bot/bot
+hub/hub
+proxy/proxy
+

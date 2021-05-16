@@ -6,9 +6,9 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 
-	kit "../toolkit"
-	"../streamcoder"
-	"../smux"
+	kit "local/toolkit"
+	"local/streamcoder"
+	"lib/smux"
 )
 
 

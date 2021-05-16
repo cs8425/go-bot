@@ -7,8 +7,8 @@ import (
 	"os"
 	"syscall"
 
-	kit "../toolkit"
-	"../smux"
+	kit "local/toolkit"
+	"lib/smux"
 )
 
 func init() {

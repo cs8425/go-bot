@@ -14,9 +14,9 @@ import (
 	"bytes"
 	"io/ioutil"
 
-	kit "../toolkit"
-	"../smux"
-	"../godaemon"
+	kit "local/toolkit"
+	"lib/smux"
+	"lib/godaemon"
 )
 
 func init() {

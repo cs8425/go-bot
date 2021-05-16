@@ -8,9 +8,9 @@ import (
 	"net"
 	"fmt"
 
-	"./lib/fakehttp"
-	kit "./lib/toolkit"
-	"./lib/base"
+	"lib/fakehttp"
+	kit "local/toolkit"
+	"local/base"
 )
 
 

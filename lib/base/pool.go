@@ -11,8 +11,8 @@ import (
 	"sort"
 	"fmt"
 
-	kit "../toolkit"
-	"../smux"
+	kit "local/toolkit"
+	"lib/smux"
 )
 
 const (
