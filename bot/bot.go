@@ -80,21 +80,24 @@ func main() {
 	c.Proc = proc
 
 	if fakeHttp {
-		var cl *fakehttp.Client
-		if tls {
-			cl = fakehttp.NewTLSClient("", nil, true)
-		} else {
-			cl = fakehttp.NewClient("")
+		mkFn := func(addr string) (*fakehttp.Client) {
+			var cl *fakehttp.Client
+			if tls {
+				cl = fakehttp.NewTLSClient(addr, nil, true)
+			} else {
+				cl = fakehttp.NewClient(addr)
+			}
+			cl.TokenCookieA = tokenCookieA
+			cl.TokenCookieB = tokenCookieB
+			cl.TokenCookieC = tokenCookieC
+			cl.UseWs = wsObf
+			cl.UserAgent = userAgent
+			cl.Url = targetUrl
+			return cl
 		}
-		cl.TokenCookieA = tokenCookieA
-		cl.TokenCookieB = tokenCookieB
-		cl.TokenCookieC = tokenCookieC
-		cl.UseWs = wsObf
-		cl.UserAgent = userAgent
-		cl.Url = targetUrl
-
 		c.Dial = func(addr string) (net.Conn, error) {
-			cl.Host = addr
+			cl := mkFn(addr)
+//			cl.Host = addr
 			return cl.Dial()
 		}
 	}
