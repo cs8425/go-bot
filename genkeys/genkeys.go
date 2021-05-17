@@ -10,7 +10,7 @@ import (
 
 	"encoding/base64"
 
-	"./lib/toolkit"
+	"local/toolkit"
 )
 
 var verbosity = flag.Int("v", 3, "verbosity")
