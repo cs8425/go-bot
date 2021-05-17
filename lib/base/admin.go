@@ -19,6 +19,7 @@ type Auth struct {
 	HubKeyTag      string
 	Private_ECDSA  []byte
 	Public_ECDSA   []byte
+	MasterKey      []byte
 
 	Sess           *smux.Session
 	Raw            net.Conn
@@ -137,6 +138,26 @@ func (a *Auth) GetConn2Client(id string, op string) (p1 net.Conn, err error) {
 	}
 	kit.WriteTagStr(p1, id)
 
+	if a.MasterKey != nil {
+		pass, err := kit.ReadTagByte(p1)
+		if err != nil {
+			return p1, err
+		}
+
+		// signature & send
+		hashed := kit.HashBytes256(pass)
+		signature, _ := kit.SignECDSA(a.MasterKey, hashed)
+		kit.WriteTagByte(p1, signature)
+
+		ret64, err := kit.ReadVLen(p1)
+		if err != nil {
+			return p1, err
+		}
+		if int(ret64) != 0 {
+			return p1, ErrReturn
+		}
+	}
+
 	// op to client
 	kit.WriteTagStr(p1, op)
 
@@ -146,11 +167,9 @@ func (a *Auth) GetConn2Client(id string, op string) (p1 net.Conn, err error) {
 		//Vln(2, "[local]net err", err)
 		return
 	}
-
-	ret := int(ret64)
-	if ret != 0 {
+	if int(ret64) != 0 {
 		//Vln(2, "[local]select err", ret)
-		err = ErrReturn
+		return p1, ErrReturn
 	}
 	return
 }

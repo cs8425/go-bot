@@ -32,6 +32,7 @@ type Client struct {
 	Daemon     bool
 	AutoClean  bool
 	Info       *Info
+	MasterKey  []byte
 
 	Dial       func(addr string) (net.Conn, error)
 
@@ -176,6 +177,27 @@ func (c *Client) Start(addr string) {
 }
 
 func (c *Client) handle1(p1 net.Conn, mux *smux.Session) {
+
+	if c.MasterKey != nil {
+		pass := make([]byte, 32, 32)
+		rand.Read(pass)
+		kit.WriteTagByte(p1, pass)
+
+		// check Signature
+		signature, err := kit.ReadTagByte(p1)
+		if err != nil {
+			Vln(5, "can not read master signature!")
+			return
+		}
+		hashed := kit.HashBytes256(pass)
+		ok := kit.VerifyECDSA(c.MasterKey, hashed, signature)
+		if !ok {
+			Vln(5, "master key Verify error!")
+			return
+		}
+		// ret
+		kit.WriteVLen(p1, int64(0))
+	}
 
 	// get mode
 	mode, err := kit.ReadTagStr(p1)
