@@ -184,7 +184,7 @@ func main() {
 		cl.UseWs = useWs
 		cl.UserAgent = conf.UserAgent
 		cl.Url = TargetUrl
-		vlog.Vln(1, "connect", cl, useFakeHttp, useTLS, useWs)
+		vlog.Vln(1, "connect", conf.HubAddr)
 
 		conn, err = cl.Dial()
 	} else {
