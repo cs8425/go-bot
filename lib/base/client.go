@@ -8,7 +8,6 @@ import (
 	"sync"
 //	"time"
 	"runtime"
-	"syscall"
 	"crypto/rand"
 
 	kit "local/toolkit"
@@ -217,49 +216,4 @@ func (c *Client) handle1(p1 net.Conn, mux *smux.Session) {
 	kit.WriteVLen(p1, int64(0))
 	fn(mode, p1, c, mux)
 }
-
-func (c *Client) handle2(p1 net.Conn, keep bool, bin string) {
-
-	if keep {
-		c.cmdMx.Lock()
-		if c.cmd == nil {
-			c.cmd = exec.Command(bin)
-			c.cmd.SysProcAttr = & syscall.SysProcAttr{
-				Setpgid: true,
-//				Noctty: true,
-			}
-			c.cmdIn, _ = c.cmd.StdinPipe()
-			c.cmdOut, _ = c.cmd.StdoutPipe()
-
-			err := c.cmd.Start() // need cmd.Wait() or blocking
-			//Vln(6, "shk init =", err)
-			if err == nil {
-				go func(){
-					c.cmd.Wait()
-					//Vln(6, "shk cmd end", c.cmd.ProcessState.Exited(), c.cmd.ProcessState)
-					c.cmdIn.Close()
-					c.cmdOut.Close()
-					c.cmdMx.Lock()
-					c.cmd = nil
-					c.cmdMx.Unlock()
-				}()
-			} else {
-				p1.Write([]byte(err.Error()))
-			}
-		}
-		kit.Cp3(c.cmdOut, p1, c.cmdIn)
-		c.cmdMx.Unlock()
-
-	} else {
-		cmd := exec.Command(bin)
-		cmd.Stdout = p1
-		cmd.Stderr = p1
-		cmd.Stdin = p1
-		err := cmd.Run()
-		if err != nil {
-			p1.Write([]byte(err.Error()))
-		}
-	}
-}
-
 
