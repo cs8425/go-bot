@@ -17,4 +17,5 @@ hub/hub
 hub/hub.*
 genkeys/genkeys
 genkeys/genkeys.*
+genkeys/*.json
 
