@@ -1,0 +1,5 @@
+{
+	"addr": "wss://:8787",
+	"onlyws": false,
+	"www": "./www"
+}
