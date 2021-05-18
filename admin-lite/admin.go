@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	//"strconv"
+	"strconv"
 	"sync"
 	"encoding/json"
 	"bytes"
@@ -325,7 +325,7 @@ func opLocal(args []string) (exit bool, hasout bool, out string) {
 	// local bind bot_id bind_addr [socks|http]
 	exit, hasout, out = false, true, `
 local ls
-local bind $bot_id $bind_addr [socks|http] [mode_argv...]
+local bind $bot_id $bind_addr [socks|http|raw] [mode_argv...]
 local stop $bind_addr`
 
 	if len(args) < 1 {
@@ -434,6 +434,22 @@ func handleClient(admin *base.Auth, p0 net.Conn, id string, argv []string) {
 		// do http
 		handleHttp(p0, p1)
 
+	case "raw":
+		//vlog.Vln(2, "raw")
+		if len(argv) < 2 {
+			vlog.Vln(2, "[raw]need target url!!")
+			return
+		}
+
+		p1, err := admin.GetConn2Client(id, base.B_fast0)
+		if err != nil {
+			vlog.Vln(2, "[raw]init err", err)
+			return
+		}
+		defer p1.Close()
+
+		raw2fast(p0, p1, argv[1])
+
 	default:
 	}
 }
@@ -491,5 +507,45 @@ func handleHttp(client net.Conn, p2 net.Conn) {
 	}
 
 	kit.Cp(client, p2)
+}
+
+func raw2fast(p0, p1 net.Conn, targetAddr string) {
+	host, portStr, err := net.SplitHostPort(targetAddr)
+	if err != nil {
+		vlog.Vln(2, "[raw]SplitHostPort err:", targetAddr, err)
+		return
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		vlog.Vln(2, "[raw]failed to parse port number:", portStr, err)
+		return
+	}
+	if port < 1 || port > 0xffff {
+		vlog.Vln(2, "[raw]port number out of range:", portStr, err)
+		return
+	}
+
+	socksReq := []byte{0x05, 0x01, 0x00, 0x03}
+	socksReq = append(socksReq, byte(len(host)))
+	socksReq = append(socksReq, host...)
+	socksReq = append(socksReq, byte(port>>8), byte(port))
+
+	var b [10]byte
+
+	// send server addr
+	p1.Write(socksReq)
+
+	// read reply
+	n, err := p1.Read(b[:10])
+	if n < 10 {
+		vlog.Vln(2, "[raw]Dial err replay:", targetAddr, n)
+		return
+	}
+	if err != nil || b[1] != 0x00 {
+		vlog.Vln(2, "Dial err:", targetAddr, n, b[1], err)
+		return
+	}
+
+	kit.Cp(p0, p1)
 }
 
