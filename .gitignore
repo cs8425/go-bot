@@ -13,4 +13,6 @@ bot/bot
 bot/bot.*
 hub/hub
 hub/hub.*
+genkeys/genkeys
+genkeys/genkeys.*
 
