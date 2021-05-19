@@ -20,6 +20,7 @@ replace local/log => ../lib/log
 
 require (
 	lib/fakehttp v0.0.0-00010101000000-000000000000 // indirect
+	lib/smux v0.0.0-00010101000000-000000000000 // indirect
 	local/base v0.0.0-00010101000000-000000000000 // indirect
 	local/toolkit v0.0.0-00010101000000-000000000000 // indirect
 	local/log v0.0.0-00010101000000-000000000000 // indirect

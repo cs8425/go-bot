@@ -42,6 +42,8 @@ const (
 	B_ppkill     = "ppkill"   // send SIGKILL to parent process (FC)
 	B_psig       = "psig"     // send Signal to process
 
+	B_bind     = "bind"  // bind port on client and connect back
+
 	B_info     = "info"    // pull info
 	B_fast0    = "j"    // fast proxy server
 	B_fast1    = "k"    // fast proxy server
