@@ -191,11 +191,11 @@ type Peer struct {
 
 // over hub and admin
 type PeerInfo struct {
-	UUID   []byte
-	Addr   string
-	UTag   string
-	UpTime time.Time
-	RTT    time.Duration
+	UUID   []byte        `json:"uuid,omitempty"`
+	Addr   string        `json:"addr,omitempty"`
+	UTag   string        `json:"tag,omitempty"`
+	UpTime time.Time     `json:"up"`
+	RTT    time.Duration `json:"rtt"`
 }
 
 func (p *PeerInfo) String() string {
