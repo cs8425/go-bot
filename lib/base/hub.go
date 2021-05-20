@@ -1,55 +1,54 @@
 package base
 
 import (
-	"net"
-	"runtime"
 	"crypto/rand"
 	"crypto/rsa"
+	"net"
+	"runtime"
 
-	kit "local/toolkit"
-	"local/streamcoder"
 	"lib/smux"
+	"local/streamcoder"
+	kit "local/toolkit"
 )
 
-
 type RSAPrivKey struct {
-	Key *rsa.PrivateKey
-	Bytes []byte // raw key
+	Key    *rsa.PrivateKey
+	Bytes  []byte // raw key
 	KeyLen int
 }
 
-func newRSAPrivKeyBase64(keylen int, rawbyte []byte) (*RSAPrivKey) {
+func newRSAPrivKeyBase64(keylen int, rawbyte []byte) *RSAPrivKey {
 	key, err := kit.ParseRSAPriv(rawbyte)
 	if err != nil {
 		return nil
 	}
 	return &RSAPrivKey{
-		Key: key,
-		Bytes: rawbyte,
+		Key:    key,
+		Bytes:  rawbyte,
 		KeyLen: keylen / 8,
 	}
 }
 
 type Hub struct {
-	Proc       int
-	HubKeyTag  string
-	OnePerIP   bool
+	Proc      int
+	HubKeyTag string
+	OnePerIP  bool
 
-	Pool       *Pool
-	IKeys      map[string]*RSAPrivKey
-	AKeys      map[string][]byte
-	CTags      map[string]bool
+	Pool  *Pool
+	IKeys map[string]*RSAPrivKey
+	AKeys map[string][]byte
+	CTags map[string]bool
 }
 
-func NewHub() (*Hub) {
+func NewHub() *Hub {
 	h := &Hub{
 		HubKeyTag: initKeyTag,
-		Proc: 1,
-		OnePerIP: true,
-		Pool: NewPool(),
-		IKeys: make(map[string]*RSAPrivKey),
-		AKeys: make(map[string][]byte),
-		CTags: make(map[string]bool),
+		Proc:      1,
+		OnePerIP:  true,
+		Pool:      NewPool(),
+		IKeys:     make(map[string]*RSAPrivKey),
+		AKeys:     make(map[string][]byte),
+		CTags:     make(map[string]bool),
 	}
 
 	h.CTags[clientAgentTag] = true
@@ -57,15 +56,15 @@ func NewHub() (*Hub) {
 	return h
 }
 
-func NewHubM() (*Hub) {
+func NewHubM() *Hub {
 	h := &Hub{
 		HubKeyTag: initKeyTag,
-		Proc: runtime.NumCPU(),
-		Pool: NewPool(),
-		OnePerIP: true,
-		IKeys: make(map[string]*RSAPrivKey),
-		AKeys: make(map[string][]byte),
-		CTags: make(map[string]bool),
+		Proc:      runtime.NumCPU(),
+		Pool:      NewPool(),
+		OnePerIP:  true,
+		IKeys:     make(map[string]*RSAPrivKey),
+		AKeys:     make(map[string][]byte),
+		CTags:     make(map[string]bool),
 	}
 
 	h.CTags[clientAgentTag] = true
@@ -95,7 +94,7 @@ func (h *Hub) DelCTag(tag string) {
 }
 
 func (h *Hub) HandleClient(p1 net.Conn) {
-	defer func(){
+	defer func() {
 		kit.TrollConn(p1)
 	}()
 
@@ -170,11 +169,11 @@ func (h *Hub) HandleClient(p1 net.Conn) {
 		if h.OnePerIP {
 			// get old clients & send signal
 			oldlist := h.Pool.CheckOld(UUID, addr)
-//			Vf(3, "[client][oldlist]%v\n", len(oldlist))
+			//			Vf(3, "[client][oldlist]%v\n", len(oldlist))
 			for _, peer := range oldlist {
 
 				go func(item *Peer) {
-//					Vf(3, "[client][old peer]%v\n", item.id, item)
+					//					Vf(3, "[client][old peer]%v\n", item.id, item)
 					p1, err := item.Mux.OpenStream()
 					if err != nil {
 						return
@@ -344,4 +343,3 @@ func doSelect(p1 net.Conn, pool *Pool) (item *Peer, ok bool) {
 
 	return
 }
-

@@ -6,28 +6,28 @@ import (
 	"crypto/rand"
 	"errors"
 
-	kit "local/toolkit"
-	"local/streamcoder"
 	"lib/smux"
+	"local/streamcoder"
+	kit "local/toolkit"
 )
 
 var ErrReturn = errors.New("Error Return Code")
 
 type Auth struct {
-	AgentTag       string
-	HubPubKey      []byte
-	HubKeyTag      string
-	Private_ECDSA  []byte
-	Public_ECDSA   []byte
-	MasterKey      []byte
+	AgentTag      string
+	HubPubKey     []byte
+	HubKeyTag     string
+	Private_ECDSA []byte
+	Public_ECDSA  []byte
+	MasterKey     []byte
 
-	Sess           *smux.Session
-	Raw            net.Conn
+	Sess *smux.Session
+	Raw  net.Conn
 }
 
-func NewAuth() (*Auth) {
+func NewAuth() *Auth {
 	return &Auth{
-		AgentTag: adminAgentTag,
+		AgentTag:  adminAgentTag,
 		HubKeyTag: initKeyTag,
 	}
 }
@@ -81,7 +81,7 @@ func (a *Auth) InitConn(conn net.Conn) (*smux.Session, error) {
 	// ACK
 	ack, err := kit.ReadTagStr(enccon)
 	if err != nil && ack != a.AgentTag {
-		return  nil, errors.New("Read ACK err:" + err.Error())
+		return nil, errors.New("Read ACK err:" + err.Error())
 	}
 	//Vln(5, "ack = ", ack, ack == a.AgentTag)
 
@@ -173,5 +173,3 @@ func (a *Auth) GetConn2Client(id string, op string) (p1 net.Conn, err error) {
 	}
 	return
 }
-
-

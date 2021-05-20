@@ -19,15 +19,15 @@ func init() {
 	RegOps(B_kill, cc1)
 }
 
-var pullInfo = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
+var pullInfo = func(op string, p1 net.Conn, c *Client, mux *smux.Session) {
 	c.Info.WriteTo(p1)
 }
 
-var fastC = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
+var fastC = func(op string, p1 net.Conn, c *Client, mux *smux.Session) {
 	handleFastS(p1)
 }
 
-var cc1 = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
+var cc1 = func(op string, p1 net.Conn, c *Client, mux *smux.Session) {
 	switch op {
 	case B_reconn:
 		mux.Close()
@@ -36,6 +36,3 @@ var cc1 = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
 		os.Exit(0)
 	}
 }
-
-
-

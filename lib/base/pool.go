@@ -7,31 +7,31 @@ import (
 	"time"
 
 	"encoding/hex"
-	"strings"
-	"sort"
 	"fmt"
+	"sort"
+	"strings"
 
-	kit "local/toolkit"
 	"lib/smux"
+	kit "local/toolkit"
 )
 
 const (
-	maxInPool = 16384
+	maxInPool  = 16384
 	maxInfoMem = 4096
 )
 
 type Pool struct {
-	lock    sync.RWMutex
-	nextId  int32
-	m2P     map[int32]*Peer // for ref Pear
-	m2ID    map[int32]string // for UUID	// TODO: change type as []byte
-	m2IPP   map[int32]string // for IP:port
+	lock   sync.RWMutex
+	nextId int32
+	m2P    map[int32]*Peer  // for ref Pear
+	m2ID   map[int32]string // for UUID	// TODO: change type as []byte
+	m2IPP  map[int32]string // for IP:port
 }
 
-func NewPool() (*Pool) {
-	return &Pool {
-		m2P: make(map[int32]*Peer),
-		m2ID: make(map[int32]string),
+func NewPool() *Pool {
+	return &Pool{
+		m2P:   make(map[int32]*Peer),
+		m2ID:  make(map[int32]string),
 		m2IPP: make(map[int32]string),
 	}
 }
@@ -85,9 +85,9 @@ func (p *Pool) getUUIDList(UUID []byte) (list []int32) {
 	return list
 }
 
-func (p *Pool) CheckOld(UUID []byte, addr string) ([]*Peer) {
+func (p *Pool) CheckOld(UUID []byte, addr string) []*Peer {
 	cmpAddr := strings.Split(addr, ":")
-	if len(cmpAddr) < 2{
+	if len(cmpAddr) < 2 {
 		return nil
 	}
 
@@ -119,8 +119,8 @@ func (p *Pool) GetByID(id int32) (*Peer, bool) {
 
 func (p *Pool) GetByUTag(UTag string) (data *Peer, ok bool) {
 	arg := strings.Split(UTag, "/")
-	if len(arg) < 2{
-		return nil , false
+	if len(arg) < 2 {
+		return nil, false
 	}
 	p.lock.RLock()
 	defer p.lock.RUnlock()
@@ -146,16 +146,16 @@ func (p *Pool) GetByUTag(UTag string) (data *Peer, ok bool) {
 	return data, ok
 }
 
-func (p *Pool) getList() ([]*PeerInfo) {
+func (p *Pool) getList() []*PeerInfo {
 	peers := make([]*PeerInfo, 0, len(p.m2P))
 	for _, v := range p.m2P {
 		addr := v.Conn.RemoteAddr().String()
 		p := &PeerInfo{
-			UUID: v.UUID,
-			Addr: addr,
-			UTag: fmt.Sprintf("%v/%v", kit.Hex(v.UUID), addr),
+			UUID:   v.UUID,
+			Addr:   addr,
+			UTag:   fmt.Sprintf("%v/%v", kit.Hex(v.UUID), addr),
 			UpTime: v.UpTime,
-			RTT: v.Mux.GetRTT(),
+			RTT:    v.Mux.GetRTT(),
 		}
 		peers = append(peers, p)
 	}
@@ -170,7 +170,7 @@ func (p *Pool) Clear() {
 	p.lock.Unlock()
 }
 
-func (p *Pool) WriteListTo(conn net.Conn) (int) {
+func (p *Pool) WriteListTo(conn net.Conn) int {
 	p.lock.RLock()
 	peers := p.getList()
 	p.lock.RUnlock()
@@ -181,24 +181,24 @@ func (p *Pool) WriteListTo(conn net.Conn) (int) {
 
 // hub only
 type Peer struct {
-	id int32
-	UUID []byte
-	Conn net.Conn
-	Mux *smux.Session
+	id     int32
+	UUID   []byte
+	Conn   net.Conn
+	Mux    *smux.Session
 	UpTime time.Time
-	Info *Info
+	Info   *Info
 }
 
 // over hub and admin
 type PeerInfo struct {
-	UUID []byte
-	Addr string
-	UTag string
+	UUID   []byte
+	Addr   string
+	UTag   string
 	UpTime time.Time
-	RTT time.Duration
+	RTT    time.Duration
 }
 
-func (p *PeerInfo) String() (string) {
+func (p *PeerInfo) String() string {
 	now := time.Now()
 	t := p.UpTime.Format(time.RFC3339)
 	t2 := now.Sub(p.UpTime).String()
@@ -206,7 +206,8 @@ func (p *PeerInfo) String() (string) {
 }
 
 type PeerList []*PeerInfo
-func (p PeerList) WriteTo(conn net.Conn) (int) {
+
+func (p PeerList) WriteTo(conn net.Conn) int {
 	list := []*PeerInfo(p)
 	n := len(list)
 	kit.WriteVLen(conn, int64(n))
@@ -247,8 +248,8 @@ func (p *PeerList) ReadFrom(conn net.Conn) (int, error) {
 		}
 
 		v := &PeerInfo{
-			UTag: string(utag),
-			RTT: time.Duration(rtt),
+			UTag:   string(utag),
+			RTT:    time.Duration(rtt),
 			UpTime: uptime,
 		}
 
@@ -260,28 +261,28 @@ func (p *PeerList) ReadFrom(conn net.Conn) (int, error) {
 	return int(n), err
 }
 
-func (p *PeerList) GetListByID() ([]*PeerInfo) {
+func (p *PeerList) GetListByID() []*PeerInfo {
 	sort.Sort(ByID([]*PeerInfo(*p)))
 	return []*PeerInfo(*p)
 }
 
-func (p *PeerList) GetListByAddr() ([]*PeerInfo) {
+func (p *PeerList) GetListByAddr() []*PeerInfo {
 	sort.Sort(ByAddr([]*PeerInfo(*p)))
 	return []*PeerInfo(*p)
 }
 
-func (p *PeerList) GetListByTime() ([]*PeerInfo) {
+func (p *PeerList) GetListByTime() []*PeerInfo {
 	sort.Sort(ByTime([]*PeerInfo(*p)))
 	return []*PeerInfo(*p)
 }
 
-func (p *PeerList) GetListByRTT() ([]*PeerInfo) {
+func (p *PeerList) GetListByRTT() []*PeerInfo {
 	sort.Sort(ByRTT([]*PeerInfo(*p)))
 	return []*PeerInfo(*p)
 }
 
-
 type ByID []*PeerInfo
+
 func (s ByID) Len() int {
 	return len(s)
 }
@@ -293,45 +294,48 @@ func (s ByID) Less(i, j int) bool {
 }
 
 type ByAddr []*PeerInfo
+
 func (s ByAddr) Len() int {
-    return len(s)
+	return len(s)
 }
 func (s ByAddr) Swap(i, j int) {
-    s[i], s[j] = s[j], s[i]
+	s[i], s[j] = s[j], s[i]
 }
 func (s ByAddr) Less(i, j int) bool {
-    return s[i].Addr < s[j].Addr
+	return s[i].Addr < s[j].Addr
 }
 
 type ByTime []*PeerInfo
+
 func (s ByTime) Len() int {
-    return len(s)
+	return len(s)
 }
 func (s ByTime) Swap(i, j int) {
-    s[i], s[j] = s[j], s[i]
+	s[i], s[j] = s[j], s[i]
 }
 func (s ByTime) Less(i, j int) bool {
-    return s[i].UpTime.Before(s[j].UpTime) // oldest first
+	return s[i].UpTime.Before(s[j].UpTime) // oldest first
 }
 
 type ByRTT []*PeerInfo
+
 func (s ByRTT) Len() int {
-    return len(s)
+	return len(s)
 }
 func (s ByRTT) Swap(i, j int) {
-    s[i], s[j] = s[j], s[i]
+	s[i], s[j] = s[j], s[i]
 }
 func (s ByRTT) Less(i, j int) bool {
-    return s[i].RTT < s[j].RTT
+	return s[i].RTT < s[j].RTT
 }
 
 func NewPeer(p1 net.Conn, mux *smux.Session, UUID []byte) *Peer {
 	return &Peer{
-		UUID: UUID,
-		Conn: p1,
-		Mux: mux,
+		UUID:   UUID,
+		Conn:   p1,
+		Mux:    mux,
 		UpTime: time.Now(),
-		Info: NewInfo(),
+		Info:   NewInfo(),
 	}
 }
 
@@ -354,7 +358,7 @@ func (inf *Info) Get(key string) (string, bool) {
 	return data, ok
 }
 
-func (inf *Info) Set(key string, value string) (bool) {
+func (inf *Info) Set(key string, value string) bool {
 	inf.lock.Lock()
 	newsize := int(inf.size) + len(key) + len(value)
 	if newsize > maxInfoMem {
@@ -388,13 +392,13 @@ func (inf *Info) Clear() {
 	inf.lock.Unlock()
 }
 
-func (inf *Info) WriteTo(conn net.Conn) (int) {
+func (inf *Info) WriteTo(conn net.Conn) int {
 	inf.lock.RLock()
 
 	n := len(inf.data)
 	kit.WriteVLen(conn, int64(n))
 	for k, v := range inf.data {
-		kit.WriteVTagByte(conn, []byte(k))	// TODO: key length limit!!
+		kit.WriteVTagByte(conn, []byte(k)) // TODO: key length limit!!
 		kit.WriteVTagByte(conn, []byte(v))
 	}
 
@@ -410,7 +414,7 @@ func (inf *Info) ReadFrom(conn net.Conn) (int, error) {
 	}
 
 	for i := 0; i < int(n); i++ {
-		k, err := kit.ReadVTagByte(conn)	// TODO: key length limit!!
+		k, err := kit.ReadVTagByte(conn) // TODO: key length limit!!
 		if err != nil {
 			break
 		}
@@ -424,4 +428,3 @@ func (inf *Info) ReadFrom(conn net.Conn) (int, error) {
 
 	return int(n), err
 }
-

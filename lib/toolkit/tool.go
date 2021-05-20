@@ -2,15 +2,14 @@ package toolkit
 
 import (
 	"io"
+	"math/rand"
 	"net"
 	"sync"
 	"time"
-	"math/rand"
-
 )
 
 const (
-	disconnectMin = 15 * 1000
+	disconnectMin   = 15 * 1000
 	disconnectRange = 30 * 1000
 
 	copyPipeSize = 2048
@@ -27,18 +26,18 @@ func init() {
 	}
 }
 
-var TrollConn = func (p1 net.Conn) {
-	sec := time.Duration(disconnectMin + rand.Intn(disconnectRange)) * time.Millisecond
+var TrollConn = func(p1 net.Conn) {
+	sec := time.Duration(disconnectMin+rand.Intn(disconnectRange)) * time.Millisecond
 	time.Sleep(sec)
 	p1.Close()
 }
 
-var SleepRand = func () {
-	sec := time.Duration(disconnectMin + rand.Intn(disconnectRange)) * time.Millisecond
+var SleepRand = func() {
+	sec := time.Duration(disconnectMin+rand.Intn(disconnectRange)) * time.Millisecond
 	time.Sleep(sec)
 }
 
-var Cp = func (p1, p2 net.Conn) {
+var Cp = func(p1, p2 net.Conn) {
 	// start tunnel
 	p1die := make(chan struct{})
 	go func() {
@@ -63,14 +62,14 @@ var Cp = func (p1, p2 net.Conn) {
 	}
 }
 
-var Cp1 = func (p1 io.Reader, p2 io.Writer) {
+var Cp1 = func(p1 io.Reader, p2 io.Writer) {
 	buf := copyBuf.Get().([]byte)
 	io.CopyBuffer(p2, p1, buf) // p2 << p1
 	copyBuf.Put(buf)
 }
 
 // p1 >> p0 >> p2
-var Cp3 = func (p1 io.Reader, p0 net.Conn, p2 io.Writer) {
+var Cp3 = func(p1 io.Reader, p0 net.Conn, p2 io.Writer) {
 	p1die := make(chan struct{})
 	go func() {
 		buf := copyBuf.Get().([]byte)
@@ -93,5 +92,3 @@ var Cp3 = func (p1 io.Reader, p0 net.Conn, p2 io.Writer) {
 	case <-p2die:
 	}
 }
-
-

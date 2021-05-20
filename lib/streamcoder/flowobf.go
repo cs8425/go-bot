@@ -2,29 +2,28 @@ package streamcoder
 
 import (
 	"encoding/binary"
+	"io"
 	"math/rand"
+	"net"
 	"sync"
 	"time"
-	"io"
-	"net"
-
-//	"log"
+	//	"log"
 )
 
 type FlowObf struct {
-	In           net.Conn //io.ReadWriteCloser
-	DataLen      int
-	NoiseMinLen  int
-	NoiseMaxLen  int
-	rbuf         []byte
-	rbufLock     sync.Mutex
-	wbuf         sync.Pool
-	rem          []byte
+	In          net.Conn //io.ReadWriteCloser
+	DataLen     int
+	NoiseMinLen int
+	NoiseMaxLen int
+	rbuf        []byte
+	rbufLock    sync.Mutex
+	wbuf        sync.Pool
+	rem         []byte
 }
 
 type Frame struct {
-	d []byte
-	l int
+	d  []byte
+	l  int
 	rl int
 }
 
@@ -35,7 +34,7 @@ func (c *FlowObf) Close() error {
 	return nil
 }
 
-func (c *FlowObf) Read(data []byte) (n int, err error)  {
+func (c *FlowObf) Read(data []byte) (n int, err error) {
 	dlen := len(data)
 
 	n = copy(data, c.rem)
@@ -99,12 +98,12 @@ func (c *FlowObf) RemoteAddr() net.Addr {
 
 func (c *FlowObf) SetReadDeadline(t time.Time) error {
 	return c.In.SetReadDeadline(t)
-//	return nil
+	//	return nil
 }
 
 func (c *FlowObf) SetWriteDeadline(t time.Time) error {
 	return c.In.SetWriteDeadline(t)
-//	return nil
+	//	return nil
 }
 
 func (c *FlowObf) SetDeadline(t time.Time) error {
@@ -124,11 +123,11 @@ func NewFlowObf(con net.Conn, maxData int, maxNoise int) (c *FlowObf, err error)
 	c.In = con
 	c.DataLen = maxData
 	c.NoiseMaxLen = maxNoise
-	c.rbuf = make([]byte, maxData + maxNoise + 4, maxData + maxNoise + 4)
+	c.rbuf = make([]byte, maxData+maxNoise+4, maxData+maxNoise+4)
 
 	c.wbuf.New = func() interface{} {
 		return Frame{
-			d: make([]byte, maxData + maxNoise + 4, maxData + maxNoise + 4),
+			d: make([]byte, maxData+maxNoise+4, maxData+maxNoise+4),
 			l: 0,
 		}
 	}
@@ -136,7 +135,7 @@ func NewFlowObf(con net.Conn, maxData int, maxNoise int) (c *FlowObf, err error)
 	return c, nil
 }
 
-func init() () {
+func init() {
 	rand.Seed(int64(time.Now().Nanosecond()))
 }
 
@@ -148,20 +147,20 @@ func (c *FlowObf) readFrame(b []byte) (f Frame, err error) {
 	noiseLen := binary.LittleEndian.Uint16(b[0:2])
 	dataLen := binary.LittleEndian.Uint16(b[2:4])
 
-/*	if noiseLen > 0 || dataLen > 0 {
+	/*	if noiseLen > 0 || dataLen > 0 {
 		log.Println("readFrame", noiseLen, dataLen)
 	}*/
 
 	if noiseLen > 0 {
 		if n, err := io.ReadFull(c.In, b[4:4+noiseLen]); err != nil {
-			f.d = b[4:4+n]
+			f.d = b[4 : 4+n]
 			f.l = n
 			return f, err
 		}
 	}
 	if dataLen > 0 {
 		if n, err := io.ReadFull(c.In, b[4+noiseLen:4+noiseLen+dataLen]); err != nil {
-			f.d = b[4+noiseLen:4+int(noiseLen)+n]
+			f.d = b[4+noiseLen : 4+int(noiseLen)+n]
 			f.l = n
 			return f, err
 		}
@@ -172,7 +171,7 @@ func (c *FlowObf) readFrame(b []byte) (f Frame, err error) {
 	return f, nil
 }
 
-func (c *FlowObf) split(bts []byte) ([]Frame) {
+func (c *FlowObf) split(bts []byte) []Frame {
 	frames := make([]Frame, 0, len(bts)/c.DataLen+1)
 	for len(bts) > c.DataLen {
 		buf := c.mkFrame(bts[:c.DataLen], c.DataLen)
@@ -194,11 +193,11 @@ func (c *FlowObf) mkNoise(buf []byte, dn int) (n int) {
 		n = rand.Intn(c.NoiseMaxLen)
 	}
 	binary.LittleEndian.PutUint16(buf[0:2], uint16(n))
-	rand.Read(buf[4:4+n])
+	rand.Read(buf[4 : 4+n])
 	return
 }
 
-func (c *FlowObf) mkFrame(bts []byte, lts int) (Frame) {
+func (c *FlowObf) mkFrame(bts []byte, lts int) Frame {
 	buf := c.wbuf.Get().(Frame)
 	n := c.mkNoise(buf.d, len(bts))
 	binary.LittleEndian.PutUint16(buf.d[2:4], uint16(lts))
@@ -207,5 +206,3 @@ func (c *FlowObf) mkFrame(bts []byte, lts int) (Frame) {
 	buf.rl = lts
 	return buf
 }
-
-

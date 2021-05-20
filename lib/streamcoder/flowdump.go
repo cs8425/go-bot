@@ -1,15 +1,15 @@
 package streamcoder
 
 import (
-	"time"
 	"net"
+	"time"
 
 	"log"
 )
 
 type FlowDump struct {
-	In           net.Conn //io.ReadWriteCloser
-	DataLen      int
+	In      net.Conn //io.ReadWriteCloser
+	DataLen int
 }
 
 func (c *FlowDump) Close() error {
@@ -19,7 +19,7 @@ func (c *FlowDump) Close() error {
 	return nil
 }
 
-func (c *FlowDump) Read(data []byte) (n int, err error)  {
+func (c *FlowDump) Read(data []byte) (n int, err error) {
 	n, err = c.In.Read(data)
 	log.Println("[d]Read", n, err, data)
 	return n, err
@@ -76,6 +76,3 @@ func NewFlowDump(con net.Conn, maxData int) (c *FlowDump, err error) {
 
 	return c, nil
 }
-
-
-

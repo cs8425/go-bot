@@ -8,8 +8,8 @@ import (
 	"os/exec"
 	"syscall"
 
-	kit "local/toolkit"
 	"lib/smux"
+	kit "local/toolkit"
 )
 
 func (c *Client) handle2(p1 net.Conn, keep bool, bin string) {
@@ -18,9 +18,9 @@ func (c *Client) handle2(p1 net.Conn, keep bool, bin string) {
 		c.cmdMx.Lock()
 		if c.cmd == nil {
 			c.cmd = exec.Command(bin)
-			c.cmd.SysProcAttr = & syscall.SysProcAttr{
+			c.cmd.SysProcAttr = &syscall.SysProcAttr{
 				Setpgid: true,
-//				Noctty: true,
+				//				Noctty: true,
 			}
 			c.cmdIn, _ = c.cmd.StdinPipe()
 			c.cmdOut, _ = c.cmd.StdoutPipe()
@@ -28,7 +28,7 @@ func (c *Client) handle2(p1 net.Conn, keep bool, bin string) {
 			err := c.cmd.Start() // need cmd.Wait() or blocking
 			//Vln(6, "shk init =", err)
 			if err == nil {
-				go func(){
+				go func() {
 					c.cmd.Wait()
 					//Vln(6, "shk cmd end", c.cmd.ProcessState.Exited(), c.cmd.ProcessState)
 					c.cmdIn.Close()
@@ -61,7 +61,7 @@ func init() {
 	RegOps(B_csh, sh)
 }
 
-var sh = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
+var sh = func(op string, p1 net.Conn, c *Client, mux *smux.Session) {
 	bin := "sh"
 	keep := false
 	switch op {
@@ -87,4 +87,3 @@ var sh = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
 
 	c.handle2(p1, keep, bin)
 }
-

@@ -4,8 +4,8 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
-	"encoding/hex"
 	"encoding/base64"
+	"encoding/hex"
 
 	"io"
 )
@@ -81,4 +81,3 @@ func Hex(a []byte) string {
 func Base64URL(a []byte) string {
 	return base64.URLEncoding.EncodeToString(a)
 }
-

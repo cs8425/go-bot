@@ -13,18 +13,18 @@ var ErrLength = errors.New("wrong length of format")
 func Encrypt(plaintext []byte, nonce []byte, key []byte) (ciphertext []byte, err error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
-//		panic(err.Error())
+		//		panic(err.Error())
 		return
 	}
 
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-//		panic(err.Error())
+		//		panic(err.Error())
 		return
 	}
 
 	ciphertext = aesgcm.Seal(nil, nonce, plaintext, nil)
-//	fmt.Printf("%d [%x]\n", len(ciphertext), ciphertext)
+	//	fmt.Printf("%d [%x]\n", len(ciphertext), ciphertext)
 
 	return
 }
@@ -32,23 +32,23 @@ func Encrypt(plaintext []byte, nonce []byte, key []byte) (ciphertext []byte, err
 func Decrypt(ciphertext []byte, nonce []byte, key []byte) (plaintext []byte, err error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
-//		panic(err.Error())
+		//		panic(err.Error())
 		return
 	}
 
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-//		panic(err.Error())
+		//		panic(err.Error())
 		return
 	}
 
 	plaintext, err = aesgcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-//		panic(err.Error())
+		//		panic(err.Error())
 		return
 	}
 
-//	fmt.Printf("%s\n", plaintext)
+	//	fmt.Printf("%s\n", plaintext)
 	return
 }
 
@@ -76,13 +76,11 @@ func PackLineByte(addr int64, buf []byte, rbuf []byte) (line []byte) {
 	size := len(buf) + len(rbuf) + 4
 	b := make([]byte, size, size)
 	b[0] = byte(addr)
-  	b[1] = byte(addr >> 8)
-  	b[2] = byte(addr >> 16)
-  	b[3] = byte(addr >> 24)
+	b[1] = byte(addr >> 8)
+	b[2] = byte(addr >> 16)
+	b[3] = byte(addr >> 24)
 	copy(b[4:], buf)
-	copy(b[len(rbuf)+4: size], rbuf)
+	copy(b[len(rbuf)+4:size], rbuf)
 
 	return b
 }
-
-

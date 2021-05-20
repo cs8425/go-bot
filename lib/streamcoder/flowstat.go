@@ -1,34 +1,32 @@
 package streamcoder
 
 import (
+	"net"
 	"sync"
 	"sync/atomic"
 	"time"
-	"net"
-
-//	"log"
+	//	"log"
 )
 
 type FlowStat struct {
-	In           net.Conn
-	Tx           int64
-	Rx           int64
-	TxSPD        int
-	RxSPD        int
+	In    net.Conn
+	Tx    int64
+	Rx    int64
+	TxSPD int
+	RxSPD int
 
-	start        time.Time
-	end          time.Time
-	die          chan struct{}
-	dieLock      sync.Mutex
+	start   time.Time
+	end     time.Time
+	die     chan struct{}
+	dieLock sync.Mutex
 
+	rxLim float64
+	rx0   int64
+	rxt   time.Time
 
-	rxLim        float64
-	rx0          int64
-	rxt          time.Time
-
-	txLim        float64
-	tx0          int64
-	txt          time.Time
+	txLim float64
+	tx0   int64
+	txt   time.Time
 }
 
 func (c *FlowStat) Close() error {
@@ -46,9 +44,9 @@ func (c *FlowStat) Close() error {
 	return c.In.Close()
 }
 
-func (c *FlowStat) Read(data []byte) (n int, err error)  {
+func (c *FlowStat) Read(data []byte) (n int, err error) {
 	n, err = c.In.Read(data)
-//	atomic.AddInt64(&c.Rx, int64(n))
+	//	atomic.AddInt64(&c.Rx, int64(n))
 	curr := atomic.AddInt64(&c.Rx, int64(n))
 
 	if c.rxLim <= 0 {
@@ -56,12 +54,12 @@ func (c *FlowStat) Read(data []byte) (n int, err error)  {
 	}
 
 	now := time.Now()
-	emsRx := int64(c.rxLim * now.Sub(c.rxt).Seconds()) + c.rx0
+	emsRx := int64(c.rxLim*now.Sub(c.rxt).Seconds()) + c.rx0
 	if curr > emsRx {
 		over := curr - emsRx
 		sleep := float64(over) / c.rxLim
-		sleepT := time.Duration(sleep * 1000000000) * time.Nanosecond
-//log.Println("[Rx over]", curr, emsRx, over, sleepT)
+		sleepT := time.Duration(sleep*1000000000) * time.Nanosecond
+		//log.Println("[Rx over]", curr, emsRx, over, sleepT)
 		select {
 		case <-c.die:
 			return n, err
@@ -77,7 +75,7 @@ func (c *FlowStat) Read(data []byte) (n int, err error)  {
 
 func (c *FlowStat) Write(data []byte) (n int, err error) {
 	n, err = c.In.Write(data)
-//	atomic.AddInt64(&c.Tx, int64(n))
+	//	atomic.AddInt64(&c.Tx, int64(n))
 	curr := atomic.AddInt64(&c.Tx, int64(n))
 
 	if c.txLim <= 0 {
@@ -85,12 +83,12 @@ func (c *FlowStat) Write(data []byte) (n int, err error) {
 	}
 
 	now := time.Now()
-	emsTx := int64(c.txLim * now.Sub(c.txt).Seconds()) + c.tx0
+	emsTx := int64(c.txLim*now.Sub(c.txt).Seconds()) + c.tx0
 	if curr > emsTx {
 		over := curr - emsTx
 		sleep := float64(over) / c.txLim
-		sleepT := time.Duration(sleep * 1000000000) * time.Nanosecond
-//log.Println("[Tx over]", curr, emsTx, over, sleepT)
+		sleepT := time.Duration(sleep*1000000000) * time.Nanosecond
+		//log.Println("[Tx over]", curr, emsTx, over, sleepT)
 		select {
 		case <-c.die:
 			return n, err
@@ -147,16 +145,15 @@ func NewFlowStat(con net.Conn) (c *FlowStat, err error) {
 	c.die = make(chan struct{})
 	c.In = con
 
-
 	now := time.Now()
 	c.start = now
 	c.rxt = now
 	c.txt = now
 
-//	c.rxLim = 1 * 1024 * 1024
-//	c.txLim = 2.5 * 1024 * 1024
+	//	c.rxLim = 1 * 1024 * 1024
+	//	c.txLim = 2.5 * 1024 * 1024
 
-//	go c.calcSpd()
+	//	go c.calcSpd()
 
 	return c, nil
 }
@@ -173,14 +170,14 @@ func (c *FlowStat) calcSpd() {
 		select {
 		case <-tick.C:
 			dt := time.Now().Sub(t0).Seconds()
-			c.TxSPD = int(float64(c.Tx - Tx0) / dt)
-			c.RxSPD = int(float64(c.Rx - Rx0) / dt)
+			c.TxSPD = int(float64(c.Tx-Tx0) / dt)
+			c.RxSPD = int(float64(c.Rx-Rx0) / dt)
 
 			Tx0 = c.Tx
 			Rx0 = c.Rx
 			t0 = time.Now()
 
-//log.Println("[SPD]", c.TxSPD, c.RxSPD)
+			//log.Println("[SPD]", c.TxSPD, c.RxSPD)
 		case <-c.die:
 			return
 		}
@@ -225,5 +222,3 @@ func (c *FlowStat) AvgTx() (n int64) {
 	n = int64(float64(n) / dt)
 	return
 }
-
-

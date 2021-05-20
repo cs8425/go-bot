@@ -4,15 +4,15 @@ import (
 	"net"
 	//"os"
 
-	kit "local/toolkit"
 	"lib/smux"
+	kit "local/toolkit"
 )
 
 func init() {
 	RegOps(B_bind, bindSrv)
 }
 
-var bindSrv = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
+var bindSrv = func(op string, p1 net.Conn, c *Client, mux *smux.Session) {
 	// get port
 	addr, err := kit.ReadTagStr(p1)
 	if err != nil {
@@ -76,5 +76,3 @@ var bindHandle = func(p1 net.Conn, mux *smux.Session) {
 
 	kit.Cp(conn, p1)
 }
-
-

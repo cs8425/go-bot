@@ -7,8 +7,8 @@ import (
 	"os"
 	"syscall"
 
-	kit "local/toolkit"
 	"lib/smux"
+	kit "local/toolkit"
 )
 
 func init() {
@@ -17,7 +17,7 @@ func init() {
 	RegOps(B_psig, ppX)
 }
 
-var ppX = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
+var ppX = func(op string, p1 net.Conn, c *Client, mux *smux.Session) {
 	do := syscall.SIGTERM
 	pid := os.Getppid()
 	switch op {
@@ -38,5 +38,3 @@ var ppX = func (op string, p1 net.Conn, c *Client, mux *smux.Session) {
 	}
 	syscall.Kill(pid, do)
 }
-
-

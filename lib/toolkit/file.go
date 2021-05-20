@@ -2,10 +2,10 @@ package toolkit
 
 import (
 	"bufio"
-	"os"
-	"strings"
 	"fmt"
 	"math/rand"
+	"os"
+	"strings"
 )
 
 func ReadLines(filename string) ([]string, error) {
@@ -28,11 +28,11 @@ func ReadLines(filename string) ([]string, error) {
 	return ret, nil
 }
 
-var GetSelf = func () (string, error) {
+var GetSelf = func() (string, error) {
 	return os.Args[0], nil
 }
 
-var TryWX = func () (fd *os.File, path string, err error) {
+var TryWX = func() (fd *os.File, path string, err error) {
 
 	paths := make([]string, 0)
 	paths = append(paths, os.TempDir())
@@ -42,7 +42,7 @@ var TryWX = func () (fd *os.File, path string, err error) {
 
 	for _, v := range paths {
 		trydir := v + string(os.PathSeparator) + fmt.Sprintf("%v", rand.Int63())
-		fd, err = os.OpenFile(trydir, os.O_WRONLY | os.O_CREATE | os.O_EXCL , 0700)
+		fd, err = os.OpenFile(trydir, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0700)
 		if os.IsExist(err) {
 			paths = append(paths, v)
 			continue
@@ -71,4 +71,3 @@ func Vln(level int, v ...interface{}) {
 		fmt.Println(v...)
 	}
 }*/
-

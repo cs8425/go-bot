@@ -3,18 +3,18 @@ package streamcoder
 import (
 	"crypto/sha256"
 	"crypto/sha512"
-//	"io"
+	//	"io"
+	chacha "lib/chacha20"
 	"net"
 	"time"
-	chacha "lib/chacha20"
 )
 
 type Coder struct {
-	In     net.Conn //io.ReadWriteCloser
-	enc    *chacha.Cipher
-	dec    *chacha.Cipher
-	nonce  []byte
-	dir    bool
+	In    net.Conn //io.ReadWriteCloser
+	enc   *chacha.Cipher
+	dec   *chacha.Cipher
+	nonce []byte
+	dir   bool
 }
 
 func (c *Coder) Close() error {
@@ -24,12 +24,12 @@ func (c *Coder) Close() error {
 	return nil
 }
 
-func (c *Coder) Read(data []byte) (n int, err error)  {
-    n, err = c.In.Read(data)
-    if n > 0 {
+func (c *Coder) Read(data []byte) (n int, err error) {
+	n, err = c.In.Read(data)
+	if n > 0 {
 		c.dec.XORKeyStream(data[0:n], data[0:n])
-    }
-    return n, err
+	}
+	return n, err
 }
 
 func (c *Coder) Write(data []byte) (n int, err error) {
@@ -113,9 +113,9 @@ func (c *Coder) ReKey(key []byte) (err error) {
 // nonce = 12 bytes x 2
 func NewCoder(con net.Conn, key []byte, nonce []byte, isClient bool) (c *Coder, err error) {
 	c = &Coder{
-			dir: isClient,
-			nonce: nonce,
-		}
+		dir:   isClient,
+		nonce: nonce,
+	}
 	c.In = con
 
 	key = key[0:64]
@@ -160,5 +160,3 @@ func NewKeyNonce(key []byte, cnonce []byte, snonce []byte) (outKey, outNonce []b
 
 	return
 }
-
-

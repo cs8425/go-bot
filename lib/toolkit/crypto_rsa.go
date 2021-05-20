@@ -21,7 +21,7 @@ func GenRSAKeys(length int) (private_key_bytes, public_key_bytes []byte) {
 }
 
 func EncRSA(publicKey *rsa.PublicKey, message []byte) ([]byte, error) {
-//	Label := []byte("")
+	//	Label := []byte("")
 	hash := sha256.New()
 	ciphertext, err := rsa.EncryptOAEP(hash, rand.Reader, publicKey, message, Label)
 
@@ -29,7 +29,7 @@ func EncRSA(publicKey *rsa.PublicKey, message []byte) ([]byte, error) {
 }
 
 func DecRSA(privateKey *rsa.PrivateKey, ciphertext []byte) ([]byte, error) {
-//	Label := []byte("")
+	//	Label := []byte("")
 	hash := sha256.New()
 
 	plainText, err := rsa.DecryptOAEP(hash, rand.Reader, privateKey, ciphertext, Label)
@@ -42,9 +42,9 @@ func SignRSA(privateKey *rsa.PrivateKey, sha256hashed []byte) ([]byte, error) {
 	var opts rsa.PSSOptions
 	opts.SaltLength = rsa.PSSSaltLengthAuto // for simple example
 	newhash := crypto.SHA256
-//	pssh := newhash.New()
-//	pssh.Write(message)
-//	sha256hashed := pssh.Sum(nil)
+	//	pssh := newhash.New()
+	//	pssh.Write(message)
+	//	sha256hashed := pssh.Sum(nil)
 
 	signature, err := rsa.SignPSS(rand.Reader, privateKey, newhash, sha256hashed, &opts)
 	return signature, err
@@ -57,9 +57,9 @@ func VerifyRSA(publicKey *rsa.PublicKey, sha256hashed []byte, signature []byte) 
 	var opts rsa.PSSOptions
 	opts.SaltLength = rsa.PSSSaltLengthAuto // for simple example
 	newhash := crypto.SHA256
-//	pssh := newhash.New()
-//	pssh.Write(message)
-//	sha256hashed := pssh.Sum(nil)
+	//	pssh := newhash.New()
+	//	pssh.Write(message)
+	//	sha256hashed := pssh.Sum(nil)
 
 	err := rsa.VerifyPSS(publicKey, newhash, sha256hashed, signature, &opts)
 	if err == nil {
@@ -84,4 +84,3 @@ func ParseRSAPub(public_key_bytes []byte) (*rsa.PublicKey, error) {
 func ParseRSAPriv(private_key_bytes []byte) (*rsa.PrivateKey, error) {
 	return x509.ParsePKCS1PrivateKey(private_key_bytes)
 }
-
