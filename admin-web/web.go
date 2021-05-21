@@ -129,6 +129,7 @@ func (api *WebAPI) Local(w http.ResponseWriter, r *http.Request) {
 		addr := r.Form.Get("addr")
 		var found *loSrv
 		idx := -1
+		api.mx.Lock()
 		for i, srv := range api.srvInfo {
 			if addr == srv.Addr {
 				idx = i
@@ -137,12 +138,14 @@ func (api *WebAPI) Local(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if found == nil {
+			api.mx.Unlock()
 			goto ERR404
 		}
 
 		vlog.Vln(3, "[local][stop]", idx, found.Addr, found.ID, found.Args)
 		found.Lis.Close()
 		api.srvInfo = append(api.srvInfo[:idx], api.srvInfo[idx+1:]...)
+		api.mx.Unlock()
 		goto RETOK
 
 	default:
@@ -219,6 +222,7 @@ func (api *WebAPI) Reverse(w http.ResponseWriter, r *http.Request) {
 		addr := r.Form.Get("addr")
 		var found *revSrv
 		idx := -1
+		api.mx.Lock()
 		for i, srv := range api.revInfo {
 			if addr == srv.Addr {
 				idx = i
@@ -227,12 +231,14 @@ func (api *WebAPI) Reverse(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if found == nil {
+			api.mx.Unlock()
 			goto ERR404
 		}
 
 		vlog.Vln(3, "[rev][stop]", idx, found.Addr, found.ID, found.Args)
 		found.Conn.Close()
 		api.revInfo = append(api.revInfo[:idx], api.revInfo[idx+1:]...)
+		api.mx.Unlock()
 		goto RETOK
 
 	default:
