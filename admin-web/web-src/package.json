@@ -1,0 +1,21 @@
+{
+    "name": "preact-starter",
+    "version": "0.0.1",
+    "description": "A simple project using Preact.js and esbuild. What could go wrong?",
+    "dependencies": {
+        "@material-ui/core": "^4.11.4",
+        "@material-ui/icons": "^4.11.2",
+        "preact": "^10.5.13",
+        "wouter-preact": "^2.7.4"
+    },
+    "devDependencies": {
+        "cross-env": "^7.0.3",
+        "esbuild": "^0.11.17"
+    },
+    "scripts": {
+        "build-cli": "esbuild src/main.js --bundle --minify --target=es2015 --sourcemap --sources-content=false --outfile=dist/js/main.js  --loader:.js=jsx --jsx-factory=h --jsx-fragment=Fragment",
+        "start-cli": "esbuild src/main.js --bundle --target=es2015 --sourcemap --serve=127.0.0.1:8000 --servedir=public/ --outfile=public/js/main.js --loader:.js=jsx --jsx-factory=h --jsx-fragment=Fragment",
+        "build": "node esbuild.js",
+        "start": "node esbuild-dev.js"
+    }
+}
