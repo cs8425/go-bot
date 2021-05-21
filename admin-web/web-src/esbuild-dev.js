@@ -75,6 +75,9 @@ esbuild.serve({
 			res.writeHead(proxyRes.statusCode, proxyRes.headers);
 			proxyRes.pipe(res, { end: true });
 		});
+		proxyReq.on('error', (err) => {
+			console.log('[req]err', req.url, err);
+		});
 
 		// Forward the body of the request to esbuild
 		req.pipe(proxyReq, { end: true });

@@ -47,7 +47,7 @@ let reactOnResolvePlugin = {
 	},
 }
 
-copy('./public', './dist');
+copy('./public', '../www');
 
 console.log('start build...');
 esbuild.build({
@@ -58,7 +58,7 @@ esbuild.build({
 	target: [
 		'es2015',
 	],
-	outfile: 'dist/js/main.js',
+	outfile: '../www/js/main.js',
 	loader: {
 		'.js': 'jsx',
 	},
