@@ -196,14 +196,7 @@ function LocalPanel(props) {
 
 	const [dialogData, setDialog] = useState(null);
 
-	// addMode / listMode
-	const handleAddBtn = (ev) => {
-		console.log('[mode]', ev);
-		setAddMode(true);
-	};
-	const handleAddClose = () => {
-		setAddMode(false);
-	};
+	// add req
 	const handleAdd = (e) => {
 		if (!useNode) {
 			// alert
@@ -239,40 +232,15 @@ function LocalPanel(props) {
 		}).then(function (res) {
 			return res.json();
 		}).then(function (d) {
-			console.log('[loacl][add]', d);
+			console.log('[loacl][add]ret', d);
 			setAddMode(false);
 		});
-	}
-
-	const handleSrvTypeChange = (e, v) => {
-		console.log('[type]', e, v);
-		setSrvType(v);
-	}
-	const handleUseNodeChange = (e) => {
-		console.log('[useNode]', e, e.target.value);
-		setUseNode(e.target.value);
-	}
-	const handleBindTypeChange = (e) => {
-		console.log('[bindType]', e, e.target.value);
-		setBindType(e.target.value);
-	}
-	const handleBindPortChange = (e) => {
-		console.log('[bindPort]', e, parseInt(e.target.value));
-		setBindPort(parseInt(e.target.value));
-	}
-	const handleBindAddrChange = (e) => {
-		console.log('[bindAddr]', e, e.target.value);
-		setBindAddr(e.target.value);
-	}
-	const handleTargetAddrChange = (e) => {
-		console.log('[targetAddr]', e, e.target.value);
-		setTargetAddr(e.target.value);
 	}
 
 	return (
 		<div>
 			{ !isAddMode &&
-				<LocalPanelListMode handleAddBtn={handleAddBtn}></LocalPanelListMode>
+				<LocalPanelListMode handleAddBtn={() => setAddMode(true)}></LocalPanelListMode>
 			}
 			{ isAddMode &&
 				<Box className={classes.center}>
@@ -283,7 +251,7 @@ function LocalPanel(props) {
 							select
 							label="Node"
 							value={useNode}
-							onChange={handleUseNodeChange}
+							onChange={(e) => setUseNode(e.target.value)}
 							helperText="Please select a using node"
 						>
 							<MenuItem value={null}>---</MenuItem>
@@ -297,7 +265,7 @@ function LocalPanel(props) {
 					<div style="margin: 1rem;">
 						<FormControl component="fieldset">
 							<FormLabel component="legend">類型</FormLabel>
-							<RadioGroup row aria-label="position" name="position" defaultValue={srvType} value={srvType} onChange={handleSrvTypeChange}>
+							<RadioGroup row aria-label="position" name="position" defaultValue={srvType} value={srvType} onChange={(e, v) => setSrvType(v)}>
 								<FormControlLabel value="socks" control={<Radio color="primary" />} label="socks5" />
 								<FormControlLabel value="http" control={<Radio color="primary" />} label="http" />
 								<FormControlLabel value="raw" control={<Radio color="primary" />} label="raw" />
@@ -311,7 +279,7 @@ function LocalPanel(props) {
 							select
 							label="type"
 							value={bindType}
-							onChange={handleBindTypeChange}
+							onChange={(e) => setBindType(e.target.value)}
 						>
 							<MenuItem key='local' value='local'>Local</MenuItem>
 							<MenuItem key='any' value='any'>Any</MenuItem>
@@ -322,7 +290,7 @@ function LocalPanel(props) {
 								required
 								label="addr"
 								value={bindAddr}
-								onChange={handleBindAddrChange}
+								onChange={(e) => setBindAddr(e.target.value)}
 							/>
 						}
 						<TextField
@@ -330,7 +298,7 @@ function LocalPanel(props) {
 							type="number"
 							label="port"
 							value={bindPort}
-							onChange={handleBindPortChange}
+							onChange={(e) => setBindPort(parseInt(e.target.value))}
 							helperText="0 for auto port"
 						/>
 					</div>
@@ -340,13 +308,13 @@ function LocalPanel(props) {
 								required
 								label="target addr"
 								value={targetAddr}
-								onChange={handleTargetAddrChange}
+								onChange={(e) => setTargetAddr(e.target.value)}
 							/>
 						</div>
 					}
 					<div style="margin: 2rem;">
 						<ButtonGroup disableElevation variant="contained" fullWidth="true">
-							<Button className={classes.noUppercase} onClick={handleAddClose}>Cancel</Button>
+							<Button className={classes.noUppercase} onClick={() => setAddMode(false)}>Cancel</Button>
 							<Button className={classes.noUppercase} onClick={handleAdd} color="primary" >Add</Button>
 						</ButtonGroup>
 					</div>
