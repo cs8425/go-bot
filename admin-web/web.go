@@ -31,7 +31,7 @@ type revSrv struct {
 	CID    int        `json:"cid"` // connection id
 	ID     string     `json:"id"`  // node id
 	Addr   string     `json:"addr"`
-	Target string     `json:"targer"`
+	Target string     `json:"target"`
 	Args   []string   `json:"args,omitempty"`
 	Admin  *base.Auth `json:"-"`
 	Conn   net.Conn   `json:"-"`
