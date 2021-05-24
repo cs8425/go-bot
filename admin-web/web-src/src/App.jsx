@@ -4,9 +4,9 @@ import { useState } from 'preact/hooks';
 import { NodeStore } from './store.js';
 
 // 引入組件
-import { Counter } from './comp.jsx';
-import { LocalPanel } from './compLocal.jsx';
 import { NodePanel } from './compNode.jsx';
+import { LocalPanel } from './compLocal.jsx';
+import { ReversePanel } from './compReverse.jsx';
 
 import AppBar from '@material-ui/core/AppBar';
 import Tab0 from '@material-ui/core/Tab';
@@ -64,8 +64,8 @@ function app() {
 				<TabPanel value={currTab} index={1}>
 					<LocalPanel NodeStore={NodeStore}></LocalPanel>
 				</TabPanel>
-				<TabPanel value={currTab} index={2}>Item Three<Counter></Counter>
-					<LocalPanel NodeStore={NodeStore}></LocalPanel>
+				<TabPanel value={currTab} index={2}>
+					<ReversePanel NodeStore={NodeStore}></ReversePanel>
 				</TabPanel>
 			</NodeStore.Provider>
 		</div>

@@ -1,4 +1,3 @@
-
 // TODO: move some common part to comp.jsx
 import { h, Fragment, Component, render } from 'preact';
 import { useState, useEffect, useContext } from 'preact/hooks';
@@ -13,13 +12,8 @@ import Fab from '@material-ui/core/Fab';
 import Button from '@material-ui/core/Button';
 import ButtonGroup from '@material-ui/core/ButtonGroup';
 
-import Radio from '@material-ui/core/Radio';
-import RadioGroup from '@material-ui/core/RadioGroup';
 import TextField from '@material-ui/core/TextField';
 import MenuItem from '@material-ui/core/MenuItem';
-import FormControlLabel from '@material-ui/core/FormControlLabel';
-import FormControl from '@material-ui/core/FormControl';
-import FormLabel from '@material-ui/core/FormLabel';
 
 import AddIcon from '@material-ui/icons/Add';
 import ClearIcon from '@material-ui/icons/Clear';
@@ -67,16 +61,16 @@ const header = (
 			Addr
 		</TableCell>
 		<TableCell
-			key='args'
+			key='target'
 			align='right'
 			style={{ minWidth: 150 }}
 		>
-			Options
+			Target
 		</TableCell>
 	</TableRow>
 );
 
-function LocalPanelListMode(props) {
+function PanelListMode(props) {
 	const classes = useStyles();
 	const { children, handleAddBtn, ...other } = props;
 	const [loSrv, setLoSrv] = useState(0);
@@ -96,12 +90,12 @@ function LocalPanelListMode(props) {
 	const handleStop = () => {
 		console.log('[stop]', anchorEl.val);
 		const val = anchorEl.val;
-		fetch(`./api/local/?op=stop&addr=${val.addr}`, {
+		fetch(`./api/rev/?op=stop&addr=${val.addr}`, {
 			method: 'POST',
 		}).then((res) => {
 			return res.json();
 		}).then((d) => {
-			console.log('[local][stop]', d);
+			console.log('[rev][stop]', d);
 			setAnchorEl(null);
 			setLoSrv(d);
 		}).finally(() => {
@@ -114,8 +108,8 @@ function LocalPanelListMode(props) {
 		let pull = () => {
 			let intv = props.interval || 15 * 1000;
 
-			console.log('[pull][local]', intv);
-			fetch('./api/local/').then(function (res) {
+			console.log('[pull][rev]', intv);
+			fetch('./api/rev/').then(function (res) {
 				return res.json();
 			}).then(function (d) {
 				// console.log(d);
@@ -126,7 +120,7 @@ function LocalPanelListMode(props) {
 		pull();
 		return () => {
 			clearTimeout(t);
-			console.log('[pull][local]stop');
+			console.log('[pull][rev]stop');
 		};
 	}, [props.interval]);
 
@@ -142,7 +136,7 @@ function LocalPanelListMode(props) {
 				</TableCell>
 				<TableCell key='id'>{v.id}</TableCell>
 				<TableCell key='addr' align='right'>{v.addr}</TableCell>
-				<TableCell key='args' align='right'>{v.args?.join(',')}</TableCell>
+				<TableCell key='target' align='right'>{v.target}</TableCell>
 			</TableRow>
 		);
 	}
@@ -182,18 +176,17 @@ function LocalPanelListMode(props) {
 }
 
 
-function LocalPanel(props) {
+function ReversePanel(props) {
 	const classes = useStyles();
 	const { children, NodeStore, ...other } = props;
 	const store = useContext(NodeStore);
 	const [isAddMode, setAddMode] = useState(false);
 
-	const [srvType, setSrvType] = useState('socks');
 	const [useNode, setUseNode] = useState(null);
-	const [bindType, setBindType] = useState('local');
-	const [bindPort, setBindPort] = useState(1080);
+	const [bindType, setBindType] = useState('any');
+	const [bindPort, setBindPort] = useState(19000);
 	const [bindAddr, setBindAddr] = useState('127.0.0.1');
-	const [targetAddr, setTargetAddr] = useState('192.168.1.194:1434');
+	const [targetAddr, setTargetAddr] = useState('127.0.0.1:443');
 
 	const [dialogData, setDialog] = useState(null);
 
@@ -208,32 +201,29 @@ function LocalPanel(props) {
 		}
 		let param = {
 			uuid: useNode,
-			bind_addr: '',
-			argv: [srvType],
+			remote: '',
+			target: targetAddr,
 		};
 		switch (bindType) {
 			case 'local':
-				param.bind_addr = `127.0.0.1:${bindPort}`;
+				param.remote = `127.0.0.1:${bindPort}`;
 				break;
 			case 'any':
-				param.bind_addr = `:${bindPort}`;
+				param.remote = `:${bindPort}`;
 				break;
 			case 'custom':
-				param.bind_addr = `${bindAddr}:${bindPort}`;
+				param.remote = `${bindAddr}:${bindPort}`;
 				break;
 		}
-		if (srvType == 'raw') {
-			param.argv.push(targetAddr);
-		}
 
-		console.log('[loacl][add]', param);
-		fetch('./api/local/?op=bind', {
+		console.log('[rev][add]', param);
+		fetch('./api/rev/?op=bind', {
 			body: JSON.stringify(param),
 			method: 'POST',
 		}).then(function (res) {
 			return res.json();
 		}).then(function (d) {
-			console.log('[loacl][add]ret', d);
+			console.log('[rev][add]ret', d);
 			setAddMode(false);
 		});
 	}
@@ -241,7 +231,7 @@ function LocalPanel(props) {
 	return (
 		<div>
 			{ !isAddMode &&
-				<LocalPanelListMode handleAddBtn={() => setAddMode(true)}></LocalPanelListMode>
+				<PanelListMode handleAddBtn={() => setAddMode(true)}></PanelListMode>
 			}
 			{ isAddMode &&
 				<Box className={classes.center}>
@@ -262,16 +252,6 @@ function LocalPanel(props) {
 								</MenuItem>
 							))}
 						</TextField>
-					</div>
-					<div style="margin: 1rem;">
-						<FormControl component="fieldset">
-							<FormLabel component="legend">類型</FormLabel>
-							<RadioGroup row aria-label="position" name="position" defaultValue={srvType} value={srvType} onChange={(e, v) => setSrvType(v)}>
-								<FormControlLabel value="socks" control={<Radio color="primary" />} label="socks5" />
-								<FormControlLabel value="http" control={<Radio color="primary" />} label="http" />
-								<FormControlLabel value="raw" control={<Radio color="primary" />} label="raw" />
-							</RadioGroup>
-						</FormControl>
 					</div>
 					<div style="margin: 1rem;">
 						<TextField
@@ -303,16 +283,14 @@ function LocalPanel(props) {
 							helperText="0 for auto port"
 						/>
 					</div>
-					{(srvType == 'raw') &&
-						<div style="margin: 1rem;">
-							<TextField
-								required
-								label="target addr"
-								value={targetAddr}
-								onChange={(e) => setTargetAddr(e.target.value)}
-							/>
-						</div>
-					}
+					<div style="margin: 1rem;">
+						<TextField
+							required
+							label="target addr"
+							value={targetAddr}
+							onChange={(e) => setTargetAddr(e.target.value)}
+						/>
+					</div>
 					<div style="margin: 2rem;">
 						<ButtonGroup disableElevation variant="contained" fullWidth="true">
 							<Button className={classes.noUppercase} onClick={() => setAddMode(false)}>Cancel</Button>
@@ -325,4 +303,4 @@ function LocalPanel(props) {
 	);
 }
 
-export { LocalPanel };
+export { ReversePanel };
