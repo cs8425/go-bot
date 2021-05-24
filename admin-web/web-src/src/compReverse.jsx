@@ -90,7 +90,7 @@ function PanelListMode(props) {
 	const handleStop = () => {
 		console.log('[stop]', anchorEl.val);
 		const val = anchorEl.val;
-		fetch(`./api/rev/?op=stop&addr=${val.addr}`, {
+		fetch(`./api/rev/?op=stop&cid=${val.cid}`, {
 			method: 'POST',
 		}).then((res) => {
 			return res.json();

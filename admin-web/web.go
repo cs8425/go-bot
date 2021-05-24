@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"sync"
 	"sync/atomic"
+	"strconv"
 
 	"local/base"
 	vlog "local/log"
@@ -226,12 +227,16 @@ func (api *WebAPI) Reverse(w http.ResponseWriter, r *http.Request) {
 
 		goto RETOK
 	case "stop": // stop
-		addr := r.Form.Get("addr")
+		tmp, err := strconv.ParseUint(r.Form.Get("cid"), 10, 32)
+		if err != nil {
+			goto ERR400
+		}
+		cid := int(tmp)
 		var found *revSrv
 		idx := -1
 		api.mx.Lock()
 		for i, srv := range api.revInfo {
-			if addr == srv.Addr {
+			if cid == srv.CID {
 				idx = i
 				found = srv
 				break
@@ -242,7 +247,7 @@ func (api *WebAPI) Reverse(w http.ResponseWriter, r *http.Request) {
 			goto ERR404
 		}
 
-		vlog.Vln(3, "[rev][stop]", idx, found.Addr, found.ID, found.Args)
+		vlog.Vln(3, "[rev][stop]", idx, found.CID, found.Addr, found.ID, found.Args)
 		found.Conn.Close()
 		api.revInfo = append(api.revInfo[:idx], api.revInfo[idx+1:]...)
 		api.mx.Unlock()
