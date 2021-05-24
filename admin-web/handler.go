@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"errors"
 
 	"lib/smux"
 	"local/base"
@@ -86,7 +87,29 @@ func handleClient(admin *base.Auth, p0 net.Conn, id string, argv []string) {
 	}
 }
 
-func handleReverse(p1 net.Conn, addr string, target string) {
+func initReverse(p1 net.Conn, addr string) (string, error) {
+	kit.WriteTagStr(p1, addr)
+
+	ret64, err := kit.ReadVLen(p1)
+	if err != nil {
+		vlog.Vln(3, "[rev]bind err0", err)
+		return "", err
+	}
+	if int(ret64) != 0 {
+		vlog.Vln(3, "[rev]bind err", ret64)
+		return "", errors.New("bind ret code != 0")
+	}
+
+	bindAddr, err := kit.ReadTagStr(p1)
+	if err != nil {
+		vlog.Vln(3, "[rev]Error get binding addr:", err)
+		return "", errors.New("get bind addr error")
+	}
+	vlog.Vln(1, "[rev]bind on:", bindAddr)
+	return bindAddr, nil
+}
+
+func handleReverse(p1 net.Conn, target string) {
 	defer p1.Close()
 
 	handleFn := func(p1 net.Conn) {
@@ -102,25 +125,6 @@ func handleReverse(p1 net.Conn, addr string, target string) {
 		vlog.Vln(3, "[rev][got]", target)
 		kit.Cp(p1, p2)
 	}
-
-	kit.WriteTagStr(p1, addr)
-
-	ret64, err := kit.ReadVLen(p1)
-	if err != nil {
-		vlog.Vln(3, "[rev]bind err0", err)
-		return
-	}
-	if int(ret64) != 0 {
-		vlog.Vln(3, "[rev]bind err", ret64)
-		return
-	}
-
-	bindAddr, err := kit.ReadTagStr(p1)
-	if err != nil {
-		vlog.Vln(3, "[rev]Error get binding addr:", err)
-		return
-	}
-	vlog.Vln(1, "[rev]bind on:", bindAddr)
 
 	// stream multiplex
 	smuxConfig := smux.DefaultConfig()

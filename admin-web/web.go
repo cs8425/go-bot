@@ -211,7 +211,14 @@ func (api *WebAPI) Reverse(w http.ResponseWriter, r *http.Request) {
 			goto ERR500
 		}
 		srv.Conn = p1
-		go handleReverse(p1, srv.Addr, srv.Target)
+
+		bindAddr, err := initReverse(p1, srv.Addr)
+		if err != nil {
+			vlog.Vln(2, "[rev]sbind err", err)
+			goto ERR500
+		}
+		srv.Addr = bindAddr
+		go handleReverse(p1, srv.Target)
 
 		api.mx.Lock()
 		api.revInfo = append(api.revInfo, srv)
