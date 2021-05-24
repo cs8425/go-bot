@@ -193,7 +193,7 @@ function LocalPanel(props) {
 	const [bindType, setBindType] = useState('local');
 	const [bindPort, setBindPort] = useState(1080);
 	const [bindAddr, setBindAddr] = useState('127.0.0.1');
-	const [targetAddr, setTargetAddr] = useState('192.168.1.194:1434');
+	const [targetAddr, setTargetAddr] = useState('192.168.1.215:3389');
 
 	const [dialogData, setDialog] = useState(null);
 
