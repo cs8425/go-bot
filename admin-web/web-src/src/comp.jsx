@@ -71,3 +71,42 @@ function DataList(props) {
 }
 
 export { DataList };
+
+import Button from '@material-ui/core/Button';
+import Dialog from '@material-ui/core/Dialog';
+import DialogActions from '@material-ui/core/DialogActions';
+import DialogContent from '@material-ui/core/DialogContent';
+import DialogContentText from '@material-ui/core/DialogContentText';
+import DialogTitle from '@material-ui/core/DialogTitle';
+
+function AlertDialog(props) {
+	const { children, data, setDialog, ...other } = props;
+	const handleClose = () => {
+		setDialog(null);
+	};
+
+	return (
+		<div>
+			<Dialog
+				open={data !== null}
+				onClose={handleClose}
+				aria-labelledby="alert-dialog-title"
+				aria-describedby="alert-dialog-description"
+			>
+				{data?.title &&
+					<DialogTitle id="alert-dialog-title">{data?.title}</DialogTitle>
+				}
+				{data?.msg &&
+					<DialogContent>
+						<DialogContentText id="alert-dialog-description">{children || data?.msg}</DialogContentText>
+					</DialogContent>
+				}
+				<DialogActions>
+					<Button onClick={handleClose} color="primary" autoFocus>OK</Button>
+				</DialogActions>
+			</Dialog>
+		</div>
+	);
+}
+
+export { AlertDialog };

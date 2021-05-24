@@ -12,12 +12,20 @@ import Fab from '@material-ui/core/Fab';
 import Button from '@material-ui/core/Button';
 import ButtonGroup from '@material-ui/core/ButtonGroup';
 
+import Radio from '@material-ui/core/Radio';
+import RadioGroup from '@material-ui/core/RadioGroup';
+import TextField from '@material-ui/core/TextField';
+import MenuItem from '@material-ui/core/MenuItem';
+import FormControlLabel from '@material-ui/core/FormControlLabel';
+import FormControl from '@material-ui/core/FormControl';
+import FormLabel from '@material-ui/core/FormLabel';
+
 import AddIcon from '@material-ui/icons/Add';
 import ClearIcon from '@material-ui/icons/Clear';
 
 import TableCell from '@material-ui/core/TableCell';
 import TableRow from '@material-ui/core/TableRow';
-import { DataList } from './comp.jsx';
+import { DataList, AlertDialog } from './comp.jsx';
 
 const useStyles = makeStyles((theme) => ({
 	addBtn: {
@@ -25,6 +33,19 @@ const useStyles = makeStyles((theme) => ({
 	},
 	popover: {
 		margin: theme.spacing(2),
+	},
+	center: {
+		textAlign: 'center',
+	},
+	formControl: {
+		margin: theme.spacing(1),
+		minWidth: 120,
+	},
+	bindType: {
+		minWidth: 180,
+	},
+	noUppercase: {
+		textTransform: 'unset',
 	},
 }));
 
@@ -54,12 +75,9 @@ const header = (
 	</TableRow>
 );
 
-
-
-function LocalPanel(props) {
+function LocalPanelListMode(props) {
 	const classes = useStyles();
-	const { children, NodeStore, ...other } = props;
-	const store = useContext(NodeStore);
+	const { children, handleAddBtn, ...other } = props;
 	const [loSrv, setLoSrv] = useState(0);
 	const [anchorEl, setAnchorEl] = useState(null);
 
@@ -77,14 +95,13 @@ function LocalPanel(props) {
 	const handleStop = () => {
 		console.log('[stop]', anchorEl.val);
 		const val = anchorEl.val;
-		fetch(`./api/local/?op=stop&addr=${val.addr}`,{
+		fetch(`./api/local/?op=stop&addr=${val.addr}`, {
 			method: 'POST',
-		})
-		.then((res) => {
+		}).then((res) => {
 			return res.json();
-		})
-		.then((d) => {
+		}).then((d) => {
 			console.log('[local][stop]', d);
+			setAnchorEl(null);
 			setLoSrv(d);
 		}).finally(() => {
 			setAnchorEl(null);
@@ -96,7 +113,7 @@ function LocalPanel(props) {
 		let pull = () => {
 			let intv = props.interval || 15 * 1000;
 
-			console.log('[pull][local]', intv, store);
+			console.log('[pull][local]', intv);
 			fetch('./api/local/').then(function (res) {
 				return res.json();
 			}).then(function (d) {
@@ -110,7 +127,7 @@ function LocalPanel(props) {
 			clearTimeout(t);
 			console.log('[pull][local]stop');
 		};
-	}, [props.interval, store]);
+	}, [props.interval]);
 
 	const renderRow = (v, idx) => {
 		return (
@@ -147,18 +164,194 @@ function LocalPanel(props) {
 				<Box className={classes.popover}>
 					<p>確定要停止嗎?</p>
 					<ButtonGroup disableElevation variant="contained">
-						<Button onClick={handleClose}>Cancel</Button>
-						<Button onClick={handleStop} color="secondary" >Stop</Button>
+						<Button className={classes.noUppercase} onClick={handleClose}>Cancel</Button>
+						<Button className={classes.noUppercase} onClick={handleStop} color="secondary" >Stop</Button>
 					</ButtonGroup>
 				</Box>
 			</Popover>
 
 			<Tooltip title="Add" aria-label="add">
-				<Fab color="primary" className={classes.addBtn}>
+				<Fab color="primary" className={classes.addBtn} onClick={handleAddBtn}>
 					<AddIcon />
 				</Fab>
 			</Tooltip>
 			<DataList header={header} renderRow={renderRow} data={loSrv}></DataList>
+		</div>
+	);
+}
+
+
+function LocalPanel(props) {
+	const classes = useStyles();
+	const { children, NodeStore, ...other } = props;
+	const store = useContext(NodeStore);
+	const [isAddMode, setAddMode] = useState(false);
+	const [srvType, setSrvType] = useState('socks');
+	const [useNode, setUseNode] = useState(null);
+
+	const [bindType, setBindType] = useState('local');
+	const [bindPort, setBindPort] = useState(1080);
+	const [bindAddr, setBindAddr] = useState('127.0.0.1');
+	const [targetAddr, setTargetAddr] = useState('192.168.1.194:1434');
+
+	const [dialogData, setDialog] = useState(null);
+
+	// addMode / listMode
+	const handleAddBtn = (ev) => {
+		console.log('[mode]', ev);
+		setAddMode(true);
+	};
+	const handleAddClose = () => {
+		setAddMode(false);
+	};
+	const handleAdd = (e) => {
+		if (!useNode) {
+			// alert
+			setDialog({
+				title: '請選擇節點!!',
+			});
+			return;
+		}
+		let param = {
+			uuid: useNode,
+			bind_addr: '',
+			argv: [srvType],
+		};
+		switch (bindType) {
+			case 'local':
+				param.bind_addr = `127.0.0.1:${bindPort}`;
+				break;
+			case 'any':
+				param.bind_addr = `:${bindPort}`;
+				break;
+			case 'custom':
+				param.bind_addr = `${bindAddr}:${bindPort}`;
+				break;
+		}
+		if (srvType == 'raw') {
+			param.argv.push(targetAddr);
+		}
+
+		console.log('[loacl][add]', param);
+		fetch('./api/local/?op=bind', {
+			body: JSON.stringify(param),
+			method: 'POST',
+		}).then(function (res) {
+			return res.json();
+		}).then(function (d) {
+			console.log('[loacl][add]', d);
+			setAddMode(false);
+		});
+	}
+
+	const handleSrvTypeChange = (e, v) => {
+		console.log('[type]', e, v);
+		setSrvType(v);
+	}
+	const handleUseNodeChange = (e) => {
+		console.log('[useNode]', e, e.target.value);
+		setUseNode(e.target.value);
+	}
+	const handleBindTypeChange = (e) => {
+		console.log('[bindType]', e, e.target.value);
+		setBindType(e.target.value);
+	}
+	const handleBindPortChange = (e) => {
+		console.log('[bindPort]', e, parseInt(e.target.value));
+		setBindPort(parseInt(e.target.value));
+	}
+	const handleBindAddrChange = (e) => {
+		console.log('[bindAddr]', e, e.target.value);
+		setBindAddr(e.target.value);
+	}
+	const handleTargetAddrChange = (e) => {
+		console.log('[targetAddr]', e, e.target.value);
+		setTargetAddr(e.target.value);
+	}
+
+	return (
+		<div>
+			{ !isAddMode &&
+				<LocalPanelListMode handleAddBtn={handleAddBtn}></LocalPanelListMode>
+			}
+			{ isAddMode &&
+				<Box className={classes.center}>
+					<AlertDialog data={dialogData} setDialog={setDialog}></AlertDialog>
+					<div style="margin: 1rem;">
+						<TextField
+							required
+							select
+							label="Node"
+							value={useNode}
+							onChange={handleUseNodeChange}
+							helperText="Please select a using node"
+						>
+							<MenuItem value={null}>---</MenuItem>
+							{store.map((option) => (
+								<MenuItem key={option.tag} value={option.tag}>
+									{option.tag}
+								</MenuItem>
+							))}
+						</TextField>
+					</div>
+					<div style="margin: 1rem;">
+						<FormControl component="fieldset">
+							<FormLabel component="legend">類型</FormLabel>
+							<RadioGroup row aria-label="position" name="position" defaultValue={srvType} value={srvType} onChange={handleSrvTypeChange}>
+								<FormControlLabel value="socks" control={<Radio color="primary" />} label="socks5" />
+								<FormControlLabel value="http" control={<Radio color="primary" />} label="http" />
+								<FormControlLabel value="raw" control={<Radio color="primary" />} label="raw" />
+							</RadioGroup>
+						</FormControl>
+					</div>
+					<div style="margin: 1rem;">
+						<TextField
+							className={classes.bindType}
+							required
+							select
+							label="type"
+							value={bindType}
+							onChange={handleBindTypeChange}
+						>
+							<MenuItem key='local' value='local'>Local</MenuItem>
+							<MenuItem key='any' value='any'>Any</MenuItem>
+							<MenuItem key='custom' value='custom'>Custom</MenuItem>
+						</TextField>
+						{(bindType == 'custom') &&
+							<TextField
+								required
+								label="addr"
+								value={bindAddr}
+								onChange={handleBindAddrChange}
+							/>
+						}
+						<TextField
+							required
+							type="number"
+							label="port"
+							value={bindPort}
+							onChange={handleBindPortChange}
+							helperText="0 for auto port"
+						/>
+					</div>
+					{(srvType == 'raw') &&
+						<div style="margin: 1rem;">
+							<TextField
+								required
+								label="target addr"
+								value={targetAddr}
+								onChange={handleTargetAddrChange}
+							/>
+						</div>
+					}
+					<div style="margin: 2rem;">
+						<ButtonGroup disableElevation variant="contained" fullWidth="true">
+							<Button className={classes.noUppercase} onClick={handleAddClose}>Cancel</Button>
+							<Button className={classes.noUppercase} onClick={handleAdd} color="primary" >Add</Button>
+						</ButtonGroup>
+					</div>
+				</Box>
+			}
 		</div>
 	);
 }

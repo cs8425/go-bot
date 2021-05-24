@@ -1,6 +1,6 @@
 import { h, Fragment, Component } from 'preact';
 import PropTypes from 'prop-types';
-import Typography from '@material-ui/core/Typography';
+// import Typography from '@material-ui/core/Typography';
 import Box from '@material-ui/core/Box';
 
 function TabPanel(props) {
@@ -15,9 +15,7 @@ function TabPanel(props) {
 			{...other}
 		>
 			{value === index && (
-				<Box p={3}>
-					<Typography>{children}</Typography>
-				</Box>
+				<Box p={3}>{children}</Box>
 			)}
 		</div>
 	);
