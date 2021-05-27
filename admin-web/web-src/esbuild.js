@@ -53,6 +53,7 @@ console.log('start build...');
 esbuild.build({
 	entryPoints: ['src/main.js'],
 	bundle: true,
+	minify: true,
 	sourcemap: false,
 	sourcesContent: true,
 	target: [
