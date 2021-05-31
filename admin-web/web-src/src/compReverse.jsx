@@ -11,6 +11,7 @@ import Box from '@material-ui/core/Box';
 import Fab from '@material-ui/core/Fab';
 import Button from '@material-ui/core/Button';
 import ButtonGroup from '@material-ui/core/ButtonGroup';
+import Switch from '@material-ui/core/Switch';
 
 import TextField from '@material-ui/core/TextField';
 import MenuItem from '@material-ui/core/MenuItem';
@@ -47,6 +48,7 @@ const useStyles = makeStyles((theme) => ({
 const header = (
 	<TableRow>
 		<TableCell key='act'>op</TableCell>
+		<TableCell key='ks'>Pause</TableCell>
 		<TableCell
 			key='id'
 			style={{ minWidth: 250 }}
@@ -102,13 +104,25 @@ function PanelListMode(props) {
 			setAnchorEl(null);
 		});
 	}
+	const handleKS = (e, val) => {
+		console.log('[KS]', e, val);
+		const ks = (val.pause) ? '0':'1';
+		fetch(`./api/rev/?op=ks&cid=${val.cid}&val=${ks}`, {
+			method: 'POST',
+		}).then((res) => {
+			return res.json();
+		}).then((d) => {
+			console.log('[rev][ks]', d);
+			setLoSrv(d);
+		});
+	}
 
 	useEffect(() => {
 		let t = null;
 		let pull = () => {
 			let intv = props.interval || 15 * 1000;
 
-			console.log('[pull][rev]', intv);
+			// console.log('[pull][rev]', intv);
 			fetch('./api/rev/').then(function (res) {
 				return res.json();
 			}).then(function (d) {
@@ -133,6 +147,9 @@ function PanelListMode(props) {
 							<ClearIcon />
 						</Fab>
 					</Tooltip>
+				</TableCell>
+				<TableCell key='ks'>
+					<Switch color="primary" checked={v.pause} onChange={(e) => handleKS(e, v)} name="pause" />
 				</TableCell>
 				<TableCell key='id'>{v.id}</TableCell>
 				<TableCell key='addr' align='right'>{v.addr}</TableCell>

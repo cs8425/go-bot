@@ -20,6 +20,7 @@ import MenuItem from '@material-ui/core/MenuItem';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
 import FormControl from '@material-ui/core/FormControl';
 import FormLabel from '@material-ui/core/FormLabel';
+import Switch from '@material-ui/core/Switch';
 
 import AddIcon from '@material-ui/icons/Add';
 import ClearIcon from '@material-ui/icons/Clear';
@@ -53,6 +54,7 @@ const useStyles = makeStyles((theme) => ({
 const header = (
 	<TableRow>
 		<TableCell key='act'>op</TableCell>
+		<TableCell key='ks'>Pause</TableCell>
 		<TableCell
 			key='id'
 			style={{ minWidth: 250 }}
@@ -108,13 +110,25 @@ function LocalPanelListMode(props) {
 			setAnchorEl(null);
 		});
 	}
+	const handleKS = (e, val) => {
+		console.log('[KS]', e, val);
+		const ks = (val.pause) ? '0':'1';
+		fetch(`./api/local/?op=ks&addr=${val.addr}&val=${ks}`, {
+			method: 'POST',
+		}).then((res) => {
+			return res.json();
+		}).then((d) => {
+			console.log('[local][ks]', d);
+			setLoSrv(d);
+		});
+	}
 
 	useEffect(() => {
 		let t = null;
 		let pull = () => {
 			let intv = props.interval || 15 * 1000;
 
-			console.log('[pull][local]', intv);
+			// console.log('[pull][local]', intv);
 			fetch('./api/local/').then(function (res) {
 				return res.json();
 			}).then(function (d) {
@@ -139,6 +153,9 @@ function LocalPanelListMode(props) {
 							<ClearIcon />
 						</Fab>
 					</Tooltip>
+				</TableCell>
+				<TableCell key='ks'>
+					<Switch color="primary" checked={v.pause} onChange={(e) => handleKS(e, v)} name="pause" />
 				</TableCell>
 				<TableCell key='id'>{v.id}</TableCell>
 				<TableCell key='addr' align='right'>{v.addr}</TableCell>
