@@ -44,6 +44,34 @@ func (c *AtomicBool) Get() bool {
 	return false
 }
 
+type ConnPool struct {
+	Mx    sync.RWMutex
+	Conns map[net.Conn]net.Conn
+}
+
+func (cp *ConnPool) Add(conn net.Conn) {
+	cp.Mx.Lock()
+	cp.Conns[conn] = conn
+	cp.Mx.Unlock()
+}
+func (cp *ConnPool) Del(conn net.Conn) {
+	cp.Mx.Lock()
+	delete(cp.Conns, conn)
+	cp.Mx.Unlock()
+}
+func (cp *ConnPool) KillAll() {
+	cp.Mx.RLock()
+	for _, conn := range cp.Conns {
+		conn.Close()
+	}
+	cp.Mx.RUnlock()
+}
+func NewConnPool() *ConnPool {
+	return &ConnPool{
+		Conns: make(map[net.Conn]net.Conn, 8),
+	}
+}
+
 type loSrv struct {
 	ID    string       `json:"id"` // node id
 	Addr  string       `json:"addr"`
@@ -51,6 +79,7 @@ type loSrv struct {
 	Pause AtomicBool   `json:"pause,omitempty"` // atomic bool
 	Admin *base.Auth   `json:"-"`
 	Lis   net.Listener `json:"-"`
+	Conns *ConnPool    `json:"-"`
 }
 
 type revSrv struct {
@@ -62,6 +91,7 @@ type revSrv struct {
 	Pause  AtomicBool `json:"pause,omitempty"` // atomic bool
 	Admin  *base.Auth `json:"-"`
 	Conn   net.Conn   `json:"-"`
+	Conns  *ConnPool  `json:"-"`
 }
 
 type WebAPI struct {
@@ -202,6 +232,9 @@ func (api *WebAPI) Local(w http.ResponseWriter, r *http.Request) {
 		}
 		vlog.Vln(3, "[local][ks]", idx, found.Addr, found.ID, found.Args, val)
 		found.Pause.Set(val)
+		if val {
+			found.Conns.KillAll()
+		}
 		goto RETOK
 
 	default:
@@ -242,6 +275,7 @@ func (api *WebAPI) localBind(r *http.Request) (*loSrv, error) {
 		Addr:  p.Addr,
 		Args:  p.Argv,
 		Admin: api.adm,
+		Conns: NewConnPool(),
 	}
 	srv.Pause.Set(p.Pause)
 	return srv, nil
@@ -341,6 +375,9 @@ func (api *WebAPI) Reverse(w http.ResponseWriter, r *http.Request) {
 		}
 		vlog.Vln(3, "[rev][ks]", idx, found.CID, found.Addr, found.ID, found.Args, val)
 		found.Pause.Set(val)
+		if val {
+			found.Conns.KillAll()
+		}
 		goto RETOK
 
 	default:
@@ -386,6 +423,7 @@ func (api *WebAPI) reverseBind(r *http.Request) (*revSrv, error) {
 		Target: p.Target,
 		Args:   p.Argv,
 		Admin:  api.adm,
+		Conns:  NewConnPool(),
 	}
 	srv.Pause.Set(p.Pause)
 	return srv, nil

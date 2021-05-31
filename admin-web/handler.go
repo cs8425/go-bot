@@ -36,7 +36,7 @@ func startLocal(srv *loSrv) {
 			}
 
 			// TODO: check client still online
-			go handleClient(srv.Admin, conn, srv.ID, srv.Args)
+			go handleClient(srv.Conns, srv.Admin, conn, srv.ID, srv.Args)
 		} else {
 			vlog.Vln(2, "[local]Accept err", err)
 			return
@@ -44,8 +44,11 @@ func startLocal(srv *loSrv) {
 	}
 }
 
-func handleClient(admin *base.Auth, p0 net.Conn, id string, argv []string) {
+func handleClient(cp *ConnPool, admin *base.Auth, p0 net.Conn, id string, argv []string) {
 	defer p0.Close()
+
+	cp.Add(p0)
+	defer cp.Del(p0)
 
 	mode := argv[0]
 	switch mode {
@@ -118,9 +121,13 @@ func initReverse(p1 net.Conn, addr string) (string, error) {
 func startReverse(srv *revSrv, p1 net.Conn) {
 	defer p1.Close()
 
+	cp := srv.Conns
 	target := srv.Target
 	handleFn := func(p1 net.Conn) {
 		defer p1.Close()
+
+		cp.Add(p1)
+		defer cp.Del(p1)
 
 		p2, err := net.DialTimeout("tcp", target, 10*time.Second)
 		if err != nil {
