@@ -2,13 +2,13 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
-	"errors"
 
 	"lib/smux"
 	"local/base"
@@ -28,6 +28,12 @@ func startLocal(srv *loSrv) {
 	for {
 		if conn, err := lis.Accept(); err == nil {
 			//vlog.Vln(2, "[local][new]", conn.RemoteAddr())
+
+			// pause, close connection
+			if srv.Pause.Get() {
+				conn.Close()
+				continue
+			}
 
 			// TODO: check client still online
 			go handleClient(srv.Admin, conn, srv.ID, srv.Args)
@@ -109,9 +115,10 @@ func initReverse(p1 net.Conn, addr string) (string, error) {
 	return bindAddr, nil
 }
 
-func handleReverse(p1 net.Conn, target string) {
+func startReverse(srv *revSrv, p1 net.Conn) {
 	defer p1.Close()
 
+	target := srv.Target
 	handleFn := func(p1 net.Conn) {
 		defer p1.Close()
 
@@ -138,6 +145,12 @@ func handleReverse(p1 net.Conn, target string) {
 		if err != nil {
 			mux.Close()
 			break
+		}
+
+		// pause, close connection
+		if srv.Pause.Get() {
+			conn.Close()
+			continue
 		}
 
 		go handleFn(conn)

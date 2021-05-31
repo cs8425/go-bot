@@ -12,18 +12,43 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"sync"
 	"sync/atomic"
-	"strconv"
 
 	"local/base"
 	vlog "local/log"
 )
 
+type AtomicBool struct {
+	atomic.Value
+}
+
+func (c *AtomicBool) MarshalJSON() ([]byte, error) {
+	if val, ok := c.Load().(bool); ok {
+		if val {
+			return []byte("true"), nil
+		} else {
+			return []byte("false"), nil
+		}
+	}
+	return []byte("null"), nil
+}
+func (c *AtomicBool) Set(val bool) {
+	c.Store(val)
+}
+func (c *AtomicBool) Get() bool {
+	if val, ok := c.Load().(bool); ok {
+		return val
+	}
+	return false
+}
+
 type loSrv struct {
 	ID    string       `json:"id"` // node id
 	Addr  string       `json:"addr"`
 	Args  []string     `json:"args,omitempty"`
+	Pause AtomicBool   `json:"pause,omitempty"` // atomic bool
 	Admin *base.Auth   `json:"-"`
 	Lis   net.Listener `json:"-"`
 }
@@ -34,6 +59,7 @@ type revSrv struct {
 	Addr   string     `json:"addr"`
 	Target string     `json:"target"`
 	Args   []string   `json:"args,omitempty"`
+	Pause  AtomicBool `json:"pause,omitempty"` // atomic bool
 	Admin  *base.Auth `json:"-"`
 	Conn   net.Conn   `json:"-"`
 }
@@ -107,6 +133,20 @@ func (api *WebAPI) Local(w http.ResponseWriter, r *http.Request) {
 	if ok := checkReqType(w, r, "RW", true); !ok {
 		return
 	}
+
+	findSrv := func(addr string) (int, *loSrv) {
+		var found *loSrv
+		idx := -1
+		for i, srv := range api.srvInfo {
+			if addr == srv.Addr {
+				idx = i
+				found = srv
+				break
+			}
+		}
+		return idx, found
+	}
+
 	op := r.Form.Get("op")
 	// uuid := r.Form.Get("uuid")
 	// addr := r.Form.Get("addr")
@@ -128,16 +168,8 @@ func (api *WebAPI) Local(w http.ResponseWriter, r *http.Request) {
 		goto RETOK
 	case "stop": // stop
 		addr := r.Form.Get("addr")
-		var found *loSrv
-		idx := -1
 		api.mx.Lock()
-		for i, srv := range api.srvInfo {
-			if addr == srv.Addr {
-				idx = i
-				found = srv
-				break
-			}
-		}
+		idx, found := findSrv(addr)
 		if found == nil {
 			api.mx.Unlock()
 			goto ERR404
@@ -147,6 +179,29 @@ func (api *WebAPI) Local(w http.ResponseWriter, r *http.Request) {
 		found.Lis.Close()
 		api.srvInfo = append(api.srvInfo[:idx], api.srvInfo[idx+1:]...)
 		api.mx.Unlock()
+		goto RETOK
+	case "ks": // kill switch
+		addr := r.Form.Get("addr")
+		api.mx.Lock()
+		idx, found := findSrv(addr)
+		if found == nil {
+			api.mx.Unlock()
+			goto ERR404
+		}
+		api.mx.Unlock()
+
+		valStr := r.Form.Get("val")
+		val := false
+		switch valStr {
+		case "1":
+			val = true
+		case "0":
+			val = false
+		default:
+			goto ERR400
+		}
+		vlog.Vln(3, "[local][ks]", idx, found.Addr, found.ID, found.Args, val)
+		found.Pause.Set(val)
 		goto RETOK
 
 	default:
@@ -168,9 +223,10 @@ ERR404:
 
 func (api *WebAPI) localBind(r *http.Request) (*loSrv, error) {
 	type param struct {
-		ID   string   `json:"uuid"`
-		Addr string   `json:"bind_addr"`
-		Argv []string `json:"argv"`
+		ID    string   `json:"uuid"`
+		Addr  string   `json:"bind_addr"`
+		Argv  []string `json:"argv"`
+		Pause bool     `json:"pause"`
 	}
 	p := param{
 		Argv: []string{"socks"},
@@ -187,6 +243,7 @@ func (api *WebAPI) localBind(r *http.Request) (*loSrv, error) {
 		Args:  p.Argv,
 		Admin: api.adm,
 	}
+	srv.Pause.Set(p.Pause)
 	return srv, nil
 }
 
@@ -194,6 +251,20 @@ func (api *WebAPI) Reverse(w http.ResponseWriter, r *http.Request) {
 	if ok := checkReqType(w, r, "RW", true); !ok {
 		return
 	}
+
+	findSrv := func(cid int) (int, *revSrv) {
+		var found *revSrv
+		idx := -1
+		for i, srv := range api.revInfo {
+			if cid == srv.CID {
+				idx = i
+				found = srv
+				break
+			}
+		}
+		return idx, found
+	}
+
 	op := r.Form.Get("op")
 	if r.Method == "GET" {
 		goto RETOK
@@ -219,7 +290,7 @@ func (api *WebAPI) Reverse(w http.ResponseWriter, r *http.Request) {
 			goto ERR500
 		}
 		srv.Addr = bindAddr
-		go handleReverse(p1, srv.Target)
+		go startReverse(srv, p1)
 
 		api.mx.Lock()
 		api.revInfo = append(api.revInfo, srv)
@@ -232,16 +303,8 @@ func (api *WebAPI) Reverse(w http.ResponseWriter, r *http.Request) {
 			goto ERR400
 		}
 		cid := int(tmp)
-		var found *revSrv
-		idx := -1
 		api.mx.Lock()
-		for i, srv := range api.revInfo {
-			if cid == srv.CID {
-				idx = i
-				found = srv
-				break
-			}
-		}
+		idx, found := findSrv(cid)
 		if found == nil {
 			api.mx.Unlock()
 			goto ERR404
@@ -251,6 +314,33 @@ func (api *WebAPI) Reverse(w http.ResponseWriter, r *http.Request) {
 		found.Conn.Close()
 		api.revInfo = append(api.revInfo[:idx], api.revInfo[idx+1:]...)
 		api.mx.Unlock()
+		goto RETOK
+	case "ks": // kill switch
+		tmp, err := strconv.ParseUint(r.Form.Get("cid"), 10, 32)
+		if err != nil {
+			goto ERR400
+		}
+		cid := int(tmp)
+		api.mx.Lock()
+		idx, found := findSrv(cid)
+		if found == nil {
+			api.mx.Unlock()
+			goto ERR404
+		}
+		api.mx.Unlock()
+
+		valStr := r.Form.Get("val")
+		val := false
+		switch valStr {
+		case "1":
+			val = true
+		case "0":
+			val = false
+		default:
+			goto ERR400
+		}
+		vlog.Vln(3, "[rev][ks]", idx, found.CID, found.Addr, found.ID, found.Args, val)
+		found.Pause.Set(val)
 		goto RETOK
 
 	default:
@@ -279,6 +369,7 @@ func (api *WebAPI) reverseBind(r *http.Request) (*revSrv, error) {
 		Addr   string   `json:"remote"`
 		Target string   `json:"target"`
 		Argv   []string `json:"argv"`
+		Pause  bool     `json:"pause"`
 	}
 	var p param
 
@@ -296,6 +387,7 @@ func (api *WebAPI) reverseBind(r *http.Request) (*revSrv, error) {
 		Args:   p.Argv,
 		Admin:  api.adm,
 	}
+	srv.Pause.Set(p.Pause)
 	return srv, nil
 }
 
