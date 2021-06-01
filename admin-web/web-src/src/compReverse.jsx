@@ -137,7 +137,7 @@ function PanelListMode(props) {
 		pull();
 		return () => {
 			clearTimeout(t);
-			console.log('[pull][rev]stop');
+			// console.log('[pull][rev]stop');
 		};
 	}, [props.interval]);
 

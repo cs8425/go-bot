@@ -143,7 +143,7 @@ function LocalPanelListMode(props) {
 		pull();
 		return () => {
 			clearTimeout(t);
-			console.log('[pull][local]stop');
+			// console.log('[pull][local]stop');
 		};
 	}, [props.interval]);
 
