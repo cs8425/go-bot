@@ -1,7 +1,7 @@
 import { h, Fragment, Component } from 'preact';
 import { useState, useRef } from 'preact/hooks';
 
-import { NodeStore } from './store.js';
+import { NodeStore, LocalStore, RevStore } from './store.js';
 
 // 引入組件
 import { NodePanel } from './compNode.jsx';
@@ -43,6 +43,8 @@ function app() {
 	const classes = useStyles();
 	const [currTab, setCurrTab] = useState(0);
 	const [nodeStore, setNodeStore] = useState([]);
+	const [localStore, setLocalStore] = useState([]);
+	const [revStore, setRevStore] = useState([]);
 	const dummyDlEl = useRef(null);
 	const fileRef = useRef();
 
@@ -98,12 +100,65 @@ function app() {
 		console.log('[load]click', e);
 		fileRef.current.open();
 	}
+	const getNode = (tag) => {
+		return nodeStore?.find(v => v.tag.match(tag))?.tag;
+	}
 	const handleFile = (val) => {
 		console.log('[file]', val);
 		let reader = new FileReader();
 		reader.onload = (e) => {
 			const json = JSON.parse(e.target.result);
 			console.log(e, json);
+			let loReqs = [];
+			json?.local?.forEach((v, i) => {
+				const useNode = getNode(v.tag);
+				if (!useNode) return;
+				let param = {
+					uuid: useNode,
+					bind_addr: v.addr,
+					argv: v.args,
+					pause: true,
+				};
+				loReqs.push(fetch('./api/local/?op=bind', {
+					body: JSON.stringify(param),
+					method: 'POST',
+				}));
+			});
+
+			let revReqs = [];
+			json?.rev?.forEach((v, i) => {
+				const useNode = getNode(v.tag);
+				if (!useNode) return;
+				let param = {
+					uuid: useNode,
+					remote: v.addr,
+					target: v.target,
+					argv: v.args,
+					pause: true,
+				};
+				revReqs.push(fetch('./api/rev/?op=bind', {
+					body: JSON.stringify(param),
+					method: 'POST',
+				}));
+			});
+
+			Promise.allSettled(loReqs).then((rets) => {
+				// {status: "fulfilled", value: [...]}
+				console.log('[load]local state', rets);
+				let last = rets.pop()
+				last.value.json().then(function (d) {
+					setLocalStore(d);
+				});
+			});
+
+			Promise.allSettled(revReqs).then((rets) => {
+				// {status: "fulfilled", value: [...]}
+				console.log('[load]rev state', rets);
+				let last = rets.pop()
+				last.value.json().then(function (d) {
+					setRevStore(d);
+				});
+			});
 		}
 		reader.readAsText(val[0]);
 	};
@@ -133,10 +188,10 @@ function app() {
 						<NodePanel setNodeStore={setNodeStore}></NodePanel>
 					</TabPanel>
 					<TabPanel value={currTab} index={1}>
-						<LocalPanel NodeStore={NodeStore}></LocalPanel>
+						<LocalStore.Provider value={{ val: localStore, set: setLocalStore }}><LocalPanel /></LocalStore.Provider>
 					</TabPanel>
 					<TabPanel value={currTab} index={2}>
-						<ReversePanel NodeStore={NodeStore}></ReversePanel>
+						<RevStore.Provider value={{ val: revStore, set: setRevStore }}><ReversePanel /></RevStore.Provider>
 					</TabPanel>
 				</NodeStore.Provider>
 			</DragNdrop>

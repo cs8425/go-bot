@@ -3,6 +3,8 @@
 import { h, Fragment, Component, render } from 'preact';
 import { useState, useEffect, useContext } from 'preact/hooks';
 
+import { NodeStore, LocalStore } from './store.js';
+
 import { makeStyles } from '@material-ui/core/styles';
 
 import Tooltip from '@material-ui/core/Tooltip';
@@ -83,6 +85,7 @@ function LocalPanelListMode(props) {
 	const { children, handleAddBtn, ...other } = props;
 	const [loSrv, setLoSrv] = useState(0);
 	const [anchorEl, setAnchorEl] = useState(null);
+	const srvStore = useContext(LocalStore);
 
 	// popover for stop
 	const handleClick = (ev, val) => {
@@ -105,7 +108,7 @@ function LocalPanelListMode(props) {
 		}).then((d) => {
 			console.log('[local][stop]', d);
 			setAnchorEl(null);
-			setLoSrv(d);
+			srvStore.set(d);
 		}).finally(() => {
 			setAnchorEl(null);
 		});
@@ -119,7 +122,7 @@ function LocalPanelListMode(props) {
 			return res.json();
 		}).then((d) => {
 			console.log('[local][ks]', d);
-			setLoSrv(d);
+			srvStore.set(d);
 		});
 	}
 
@@ -133,7 +136,7 @@ function LocalPanelListMode(props) {
 				return res.json();
 			}).then(function (d) {
 				// console.log(d);
-				setLoSrv(d);
+				srvStore.set(d);
 			});
 			t = setTimeout(pull, intv);
 		};
@@ -193,7 +196,7 @@ function LocalPanelListMode(props) {
 					<AddIcon />
 				</Fab>
 			</Tooltip>
-			<DataList header={header} renderRow={renderRow} data={loSrv}></DataList>
+			<DataList header={header} renderRow={renderRow} data={srvStore.val}></DataList>
 		</div>
 	);
 }
@@ -201,7 +204,7 @@ function LocalPanelListMode(props) {
 
 function LocalPanel(props) {
 	const classes = useStyles();
-	const { children, NodeStore, ...other } = props;
+	const { children, ...other } = props;
 	const store = useContext(NodeStore);
 	const [isAddMode, setAddMode] = useState(false);
 

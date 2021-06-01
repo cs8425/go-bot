@@ -33,18 +33,18 @@ const DragNdrop = forwardRef((props, ref) => {
 	useEffect(() => {
 		return () => {
 			if (inputEl.current) inputEl.current.value = null;
-			console.log('[drag][clean]', inputEl);
+			// console.log('[drag][clean]', inputEl);
 		};
 	}, [inputEl]);
 
 	const handleFiles = (e) => {
 		let files = e?.target?.files || e?.dataTransfer?.files;
-		console.log('[drag]handleFiles', this, e, files);
+		// console.log('[drag]handleFiles', this, e, files);
 		handleFile(files);
 	}
 	const drop = (e) => {
 		e.preventDefault();
-		console.log('[drag]drop', this, e, inputEl);
+		// console.log('[drag]drop', this, e, inputEl);
 		setZoneEnter(false);
 		handleFiles(e);
 	}
