@@ -1,8 +1,6 @@
 import { createContext } from 'preact';
 
-const NodeStore = createContext({
-	nodes: [],
-});
+const NodeStore = createContext([]);
 
 
 export { NodeStore };
