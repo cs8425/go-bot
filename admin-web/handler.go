@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"lib/smux"
@@ -16,17 +18,83 @@ import (
 	kit "local/toolkit"
 )
 
-func startLocal(srv *loSrv) {
+type AtomicBool struct {
+	atomic.Value
+}
+
+func (c *AtomicBool) MarshalJSON() ([]byte, error) {
+	if val, ok := c.Load().(bool); ok {
+		if val {
+			return []byte("true"), nil
+		} else {
+			return []byte("false"), nil
+		}
+	}
+	return []byte("null"), nil
+}
+func (c *AtomicBool) Set(val bool) {
+	c.Store(val)
+}
+func (c *AtomicBool) Get() bool {
+	if val, ok := c.Load().(bool); ok {
+		return val
+	}
+	return false
+}
+
+type ConnPool struct {
+	Mx    sync.RWMutex
+	Conns map[net.Conn]net.Conn
+}
+
+func (cp *ConnPool) Add(conn net.Conn) {
+	cp.Mx.Lock()
+	cp.Conns[conn] = conn
+	cp.Mx.Unlock()
+}
+func (cp *ConnPool) Del(conn net.Conn) {
+	cp.Mx.Lock()
+	delete(cp.Conns, conn)
+	cp.Mx.Unlock()
+}
+func (cp *ConnPool) KillAll() {
+	cp.Mx.RLock()
+	for _, conn := range cp.Conns {
+		conn.Close()
+	}
+	cp.Mx.RUnlock()
+}
+func NewConnPool() *ConnPool {
+	return &ConnPool{
+		Conns: make(map[net.Conn]net.Conn, 8),
+	}
+}
+
+type loSrv struct {
+	ID    string       `json:"id"` // node id
+	Addr  string       `json:"addr"`
+	Args  []string     `json:"args,omitempty"`
+	Pause AtomicBool   `json:"pause,omitempty"` // atomic bool
+	Admin *base.Auth   `json:"-"`
+	Lis   net.Listener `json:"-"`
+	Conns *ConnPool    `json:"-"`
+}
+
+func (srv *loSrv) Init() error {
 	lis, err := net.Listen("tcp", srv.Addr)
 	if err != nil {
 		vlog.Vln(2, "[local]Error listening:", err.Error())
-		return
+		return err
 	}
-	defer lis.Close()
 	srv.Lis = lis
+	return nil
+}
+
+func (srv *loSrv) Start() {
+	defer srv.Lis.Close()
 
 	for {
-		if conn, err := lis.Accept(); err == nil {
+		if conn, err := srv.Lis.Accept(); err == nil {
 			//vlog.Vln(2, "[local][new]", conn.RemoteAddr())
 
 			// pause, close connection
@@ -36,7 +104,7 @@ func startLocal(srv *loSrv) {
 			}
 
 			// TODO: check client still online
-			go handleClient(srv.Conns, srv.Admin, conn, srv.ID, srv.Args)
+			go srv.handleClient(conn)
 		} else {
 			vlog.Vln(2, "[local]Accept err", err)
 			return
@@ -44,11 +112,16 @@ func startLocal(srv *loSrv) {
 	}
 }
 
-func handleClient(cp *ConnPool, admin *base.Auth, p0 net.Conn, id string, argv []string) {
+func (srv *loSrv) handleClient(p0 net.Conn) {
 	defer p0.Close()
 
+	cp := srv.Conns
 	cp.Add(p0)
 	defer cp.Del(p0)
+
+	admin := srv.Admin
+	id := srv.ID
+	argv := srv.Args
 
 	mode := argv[0]
 	switch mode {
@@ -96,8 +169,21 @@ func handleClient(cp *ConnPool, admin *base.Auth, p0 net.Conn, id string, argv [
 	}
 }
 
-func initReverse(p1 net.Conn, addr string) (string, error) {
-	kit.WriteTagStr(p1, addr)
+type revSrv struct {
+	CID    int        `json:"cid"` // connection id
+	ID     string     `json:"id"`  // node id
+	Addr   string     `json:"addr"`
+	Target string     `json:"target"`
+	Args   []string   `json:"args,omitempty"`
+	Pause  AtomicBool `json:"pause,omitempty"` // atomic bool
+	Admin  *base.Auth `json:"-"`
+	Conn   net.Conn   `json:"-"`
+	Conns  *ConnPool  `json:"-"`
+}
+
+func (srv *revSrv) Init(p1 net.Conn) (string, error) {
+	srv.Conn = p1
+	kit.WriteTagStr(p1, srv.Addr)
 
 	ret64, err := kit.ReadVLen(p1)
 	if err != nil {
@@ -114,11 +200,13 @@ func initReverse(p1 net.Conn, addr string) (string, error) {
 		vlog.Vln(3, "[rev]Error get binding addr:", err)
 		return "", errors.New("get bind addr error")
 	}
+	srv.Addr = bindAddr
 	vlog.Vln(1, "[rev]bind on:", bindAddr)
 	return bindAddr, nil
 }
 
-func startReverse(srv *revSrv, p1 net.Conn) {
+func (srv *revSrv) Start() {
+	p1 := srv.Conn
 	defer p1.Close()
 
 	cp := srv.Conns

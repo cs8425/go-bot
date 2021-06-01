@@ -21,80 +21,6 @@ import (
 	vlog "local/log"
 )
 
-type AtomicBool struct {
-	atomic.Value
-}
-
-func (c *AtomicBool) MarshalJSON() ([]byte, error) {
-	if val, ok := c.Load().(bool); ok {
-		if val {
-			return []byte("true"), nil
-		} else {
-			return []byte("false"), nil
-		}
-	}
-	return []byte("null"), nil
-}
-func (c *AtomicBool) Set(val bool) {
-	c.Store(val)
-}
-func (c *AtomicBool) Get() bool {
-	if val, ok := c.Load().(bool); ok {
-		return val
-	}
-	return false
-}
-
-type ConnPool struct {
-	Mx    sync.RWMutex
-	Conns map[net.Conn]net.Conn
-}
-
-func (cp *ConnPool) Add(conn net.Conn) {
-	cp.Mx.Lock()
-	cp.Conns[conn] = conn
-	cp.Mx.Unlock()
-}
-func (cp *ConnPool) Del(conn net.Conn) {
-	cp.Mx.Lock()
-	delete(cp.Conns, conn)
-	cp.Mx.Unlock()
-}
-func (cp *ConnPool) KillAll() {
-	cp.Mx.RLock()
-	for _, conn := range cp.Conns {
-		conn.Close()
-	}
-	cp.Mx.RUnlock()
-}
-func NewConnPool() *ConnPool {
-	return &ConnPool{
-		Conns: make(map[net.Conn]net.Conn, 8),
-	}
-}
-
-type loSrv struct {
-	ID    string       `json:"id"` // node id
-	Addr  string       `json:"addr"`
-	Args  []string     `json:"args,omitempty"`
-	Pause AtomicBool   `json:"pause,omitempty"` // atomic bool
-	Admin *base.Auth   `json:"-"`
-	Lis   net.Listener `json:"-"`
-	Conns *ConnPool    `json:"-"`
-}
-
-type revSrv struct {
-	CID    int        `json:"cid"` // connection id
-	ID     string     `json:"id"`  // node id
-	Addr   string     `json:"addr"`
-	Target string     `json:"target"`
-	Args   []string   `json:"args,omitempty"`
-	Pause  AtomicBool `json:"pause,omitempty"` // atomic bool
-	Admin  *base.Auth `json:"-"`
-	Conn   net.Conn   `json:"-"`
-	Conns  *ConnPool  `json:"-"`
-}
-
 type DialFn func() (net.Conn, error)
 
 type WebAPI struct {
@@ -202,10 +128,14 @@ func (api *WebAPI) Local(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			goto ERR400
 		}
+		if err := srv.Init(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		go srv.Start()
 		api.mx.Lock()
 		api.srvInfo = append(api.srvInfo, srv)
 		api.mx.Unlock()
-		go startLocal(srv)
 		goto RETOK
 	case "stop": // stop
 		addr := r.Form.Get("addr")
@@ -325,17 +255,16 @@ func (api *WebAPI) Reverse(w http.ResponseWriter, r *http.Request) {
 		p1, err := api.adm.GetConn2Client(srv.ID, base.B_bind)
 		if err != nil {
 			vlog.Vln(2, "[rev]init err", err)
-			goto ERR500
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
-		srv.Conn = p1
 
-		bindAddr, err := initReverse(p1, srv.Addr)
-		if err != nil {
-			vlog.Vln(2, "[rev]sbind err", err)
-			goto ERR500
+		if _, err := srv.Init(p1); err != nil {
+			vlog.Vln(2, "[rev]rbind err", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
-		srv.Addr = bindAddr
-		go startReverse(srv, p1)
+		go srv.Start()
 
 		api.mx.Lock()
 		api.revInfo = append(api.revInfo, srv)
@@ -406,9 +335,9 @@ ERR400:
 ERR404:
 	http.Error(w, "not found", http.StatusNotFound)
 	return
-ERR500:
-	http.Error(w, "error", http.StatusInternalServerError)
-	return
+	// ERR500:
+	// 	http.Error(w, "error", http.StatusInternalServerError)
+	// 	return
 }
 
 func (api *WebAPI) reverseBind(r *http.Request) (*revSrv, error) {
