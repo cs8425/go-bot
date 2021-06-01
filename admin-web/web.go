@@ -396,7 +396,7 @@ ERR404:
 	http.Error(w, "not found", http.StatusNotFound)
 	return
 ERR500:
-	http.Error(w, "not found", http.StatusInternalServerError)
+	http.Error(w, "error", http.StatusInternalServerError)
 	return
 }
 
