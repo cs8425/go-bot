@@ -3,6 +3,7 @@ import { h, Fragment, Component, render } from 'preact';
 import { useState, useEffect, useContext } from 'preact/hooks';
 
 import { NodeStore, RevStore } from './store.js';
+import { fetchReq } from './api.js';
 
 import { makeStyles } from '@material-ui/core/styles';
 
@@ -95,28 +96,34 @@ function PanelListMode(props) {
 	const handleStop = () => {
 		console.log('[stop]', anchorEl.val);
 		const val = anchorEl.val;
-		fetch(`./api/rev/?op=stop&cid=${val.cid}`, {
+		fetchReq(`./api/rev/?op=stop&cid=${val.cid}`, {
 			method: 'POST',
-		}).then((res) => {
-			return res.json();
-		}).then((d) => {
+		}, (d) => {
 			console.log('[rev][stop]', d);
 			setAnchorEl(null);
 			srvStore.set(d);
-		}).finally(() => {
-			setAnchorEl(null);
+		}, (err) => {
+			console.log('[rev][stop]err', err);
+			setDialog({
+				title: 'Error',
+				msg: err,
+			});
 		});
 	}
 	const handleKS = (e, val) => {
 		console.log('[KS]', e, val);
-		const ks = (val.pause) ? '0':'1';
-		fetch(`./api/rev/?op=ks&cid=${val.cid}&val=${ks}`, {
+		const ks = (val.pause) ? '0' : '1';
+		fetchReq(`./api/rev/?op=ks&cid=${val.cid}&val=${ks}`, {
 			method: 'POST',
-		}).then((res) => {
-			return res.json();
-		}).then((d) => {
+		}, (d) => {
 			console.log('[rev][ks]', d);
 			srvStore.set(d);
+		}, (err) => {
+			console.log('[rev][ks]err', err);
+			setDialog({
+				title: 'Error',
+				msg: err,
+			});
 		});
 	}
 
@@ -126,9 +133,7 @@ function PanelListMode(props) {
 			let intv = props.interval || 15 * 1000;
 
 			// console.log('[pull][rev]', intv);
-			fetch('./api/rev/').then(function (res) {
-				return res.json();
-			}).then(function (d) {
+			fetchReq('./api/rev/').then((d) => {
 				// console.log(d);
 				srvStore.set(d);
 			});
@@ -237,14 +242,18 @@ function ReversePanel(props) {
 		}
 
 		console.log('[rev][add]', param);
-		fetch('./api/rev/?op=bind', {
+		fetchReq('./api/rev/?op=bind', {
 			body: JSON.stringify(param),
 			method: 'POST',
-		}).then(function (res) {
-			return res.json();
-		}).then(function (d) {
+		}, (d) => {
 			console.log('[rev][add]ret', d);
 			setAddMode(false);
+		}, (err) => {
+			console.log('[rev][add]err', err);
+			setDialog({
+				title: 'Error',
+				msg: err,
+			});
 		});
 	}
 

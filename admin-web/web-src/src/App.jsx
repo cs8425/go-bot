@@ -57,17 +57,13 @@ function app() {
 	};
 	const handleSave = (e) => {
 		Promise.allSettled([
-			fetch('./api/local/').then(function (res) {
-				return res.json();
-			}),
-			fetch('./api/rev/').then(function (res) {
-				return res.json();
-			})
+			fetch('./api/local/').then((res) => res.json()),
+			fetch('./api/rev/').then((res) => res.json()),
 		]).then(([localRet, revRet]) => {
 			// {status: "fulfilled", value: [...]}
 			console.log('[save]state', localRet, revRet);
 			if (localRet.status !== 'fulfilled' || revRet.status !== 'fulfilled') {
-				return; // TODO: alert
+				return; // TODO: error handle
 			}
 			const dump = {
 				local: localRet.value?.map((v, i) => ({
@@ -145,7 +141,8 @@ function app() {
 			Promise.allSettled(loReqs).then((rets) => {
 				// {status: "fulfilled", value: [...]}
 				console.log('[load]local state', rets);
-				let last = rets.pop()
+				let last = rets.pop();
+				// TODO: error handle
 				last.value.json().then(function (d) {
 					setLocalStore(d);
 				});
@@ -154,7 +151,8 @@ function app() {
 			Promise.allSettled(revReqs).then((rets) => {
 				// {status: "fulfilled", value: [...]}
 				console.log('[load]rev state', rets);
-				let last = rets.pop()
+				let last = rets.pop();
+				// TODO: error handle
 				last.value.json().then(function (d) {
 					setRevStore(d);
 				});

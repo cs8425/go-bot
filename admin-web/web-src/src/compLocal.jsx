@@ -4,6 +4,7 @@ import { h, Fragment, Component, render } from 'preact';
 import { useState, useEffect, useContext } from 'preact/hooks';
 
 import { NodeStore, LocalStore } from './store.js';
+import { fetchReq } from './api.js';
 
 import { makeStyles } from '@material-ui/core/styles';
 
@@ -101,28 +102,34 @@ function LocalPanelListMode(props) {
 	const handleStop = () => {
 		console.log('[stop]', anchorEl.val);
 		const val = anchorEl.val;
-		fetch(`./api/local/?op=stop&addr=${val.addr}`, {
+		fetchReq(`./api/local/?op=stop&addr=${val.addr}`, {
 			method: 'POST',
-		}).then((res) => {
-			return res.json();
-		}).then((d) => {
+		}, (d) => {
 			console.log('[local][stop]', d);
 			setAnchorEl(null);
 			srvStore.set(d);
-		}).finally(() => {
-			setAnchorEl(null);
+		}, (err) => {
+			console.log('[local][stop]err', err);
+			setDialog({
+				title: 'Error',
+				msg: err,
+			});
 		});
 	}
 	const handleKS = (e, val) => {
 		console.log('[KS]', e, val);
-		const ks = (val.pause) ? '0':'1';
-		fetch(`./api/local/?op=ks&addr=${val.addr}&val=${ks}`, {
+		const ks = (val.pause) ? '0' : '1';
+		fetchReq(`./api/local/?op=ks&addr=${val.addr}&val=${ks}`, {
 			method: 'POST',
-		}).then((res) => {
-			return res.json();
-		}).then((d) => {
+		}, (d) => {
 			console.log('[local][ks]', d);
 			srvStore.set(d);
+		}, (err) => {
+			console.log('[local][ks]err', err);
+			setDialog({
+				title: 'Error',
+				msg: err,
+			});
 		});
 	}
 
@@ -132,9 +139,7 @@ function LocalPanelListMode(props) {
 			let intv = props.interval || 15 * 1000;
 
 			// console.log('[pull][local]', intv);
-			fetch('./api/local/').then(function (res) {
-				return res.json();
-			}).then(function (d) {
+			fetchReq('./api/local/').then((d) => {
 				// console.log(d);
 				srvStore.set(d);
 			});
@@ -246,15 +251,19 @@ function LocalPanel(props) {
 			param.argv.push(targetAddr);
 		}
 
-		console.log('[loacl][add]', param);
-		fetch('./api/local/?op=bind', {
+		console.log('[local][add]', param);
+		fetchReq('./api/local/?op=bind', {
 			body: JSON.stringify(param),
 			method: 'POST',
-		}).then(function (res) {
-			return res.json();
-		}).then(function (d) {
-			console.log('[loacl][add]ret', d);
+		}, (d) => {
+			console.log('[local][add]ret', d);
 			setAddMode(false);
+		}, (err) => {
+			console.log('[local][add]err', err);
+			setDialog({
+				title: 'Error',
+				msg: err,
+			});
 		});
 	}
 
