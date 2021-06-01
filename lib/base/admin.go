@@ -11,7 +11,10 @@ import (
 	kit "local/toolkit"
 )
 
-var ErrReturn = errors.New("Error Return Code")
+var (
+	ErrReturn = errors.New("Error Return Code")
+	ErrNotConnected = errors.New("Error not connected")
+)
 
 type Auth struct {
 	AgentTag      string
@@ -99,6 +102,9 @@ func (a *Auth) InitConn(conn net.Conn) (*smux.Session, error) {
 }
 
 func (a *Auth) GetConn(op string) (conn net.Conn, err error) {
+	if a.Sess == nil {
+		return nil, ErrNotConnected
+	}
 	conn, err = a.Sess.OpenStream()
 	if err != nil {
 		return nil, err
