@@ -3,6 +3,7 @@ package main
 import (
 	//"encoding/binary"
 	"encoding/json"
+	"time"
 
 	//"fmt"
 	//"io"
@@ -94,6 +95,8 @@ type revSrv struct {
 	Conns  *ConnPool  `json:"-"`
 }
 
+type DialFn func() (net.Conn, error)
+
 type WebAPI struct {
 	ln net.Listener // for client connect
 
@@ -119,20 +122,28 @@ func NewWebAPI(admin *base.Auth) *WebAPI {
 	// TODO: worker
 	return api
 }
-
-func (api *WebAPI) Start(conn net.Conn) {
-	mux, err := api.adm.InitConn(conn)
-	if err != nil {
-		vlog.Vln(1, "[core]connect err", err)
-		return
-	}
-	// check connection to hub
+func (api *WebAPI) Start(dialFn DialFn) {
 	for {
-		_, err := mux.AcceptStream()
+		conn, err := dialFn()
 		if err != nil {
-			mux.Close()
-			vlog.Vln(2, "[core]connection to hub reset!!")
-			break
+			vlog.Vln(1, "[core]connect err", err)
+			time.Sleep(3000 * time.Millisecond)
+			continue
+		}
+		mux, err := api.adm.InitConn(conn)
+		if err != nil {
+			vlog.Vln(1, "[core]connect err", err)
+			time.Sleep(3000 * time.Millisecond)
+			continue
+		}
+		// check connection to hub
+		for {
+			_, err := mux.AcceptStream()
+			if err != nil {
+				mux.Close()
+				vlog.Vln(2, "[core]connection to hub reset!!")
+				break
+			}
 		}
 	}
 }

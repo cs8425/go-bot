@@ -148,7 +148,7 @@ func main() {
 	admin.Public_ECDSA = public_ECDSA // not used
 	admin.MasterKey = conf.MasterKey
 
-	var conn net.Conn
+	var dialFn DialFn
 	if useFakeHttp {
 		var cl *fakehttp.Client
 		if useTLS {
@@ -171,19 +171,20 @@ func main() {
 		cl.UseWs = useWs
 		cl.UserAgent = conf.UserAgent
 		cl.Url = TargetUrl
-		vlog.Vln(1, "connect", conf.HubAddr)
 
-		conn, err = cl.Dial()
+		dialFn = func() (net.Conn, error) {
+			vlog.Vln(1, "connect", huburl)
+			return cl.Dial()
+		}
 	} else {
-		conn, err = net.Dial("tcp", huburl)
-	}
-	if err != nil {
-		vlog.Vln(1, "connect err", err)
-		return
+		dialFn = func() (net.Conn, error) {
+			vlog.Vln(1, "connect", huburl)
+			return net.Dial("tcp", huburl)
+		}
 	}
 
 	api := NewWebAPI(admin)
-	go api.Start(conn)
+	go api.Start(dialFn)
 	webStart(api, *webAddr)
 }
 
