@@ -1,6 +1,6 @@
 // TODO: move some common part to comp.jsx
-import { h, Fragment, Component, render } from 'preact';
-import { useState, useEffect, useContext } from 'preact/hooks';
+import { h, Fragment } from 'preact';
+import { useState, useContext } from 'preact/hooks';
 
 import { NodeStore, RevStore } from './store.js';
 import { fetchReq } from './api.js';
@@ -8,7 +8,6 @@ import { fetchReq } from './api.js';
 import { makeStyles } from '@material-ui/core/styles';
 
 import Tooltip from '@material-ui/core/Tooltip';
-import Popover from '@material-ui/core/Popover';
 
 import Box from '@material-ui/core/Box';
 import Fab from '@material-ui/core/Fab';
@@ -19,12 +18,11 @@ import Switch from '@material-ui/core/Switch';
 import TextField from '@material-ui/core/TextField';
 import MenuItem from '@material-ui/core/MenuItem';
 
-import AddIcon from '@material-ui/icons/Add';
 import ClearIcon from '@material-ui/icons/Clear';
 
 import TableCell from '@material-ui/core/TableCell';
 import TableRow from '@material-ui/core/TableRow';
-import { DataList, AlertDialog } from './comp.jsx';
+import { AlertDialog, PanelListMode } from './comp.jsx';
 
 const useStyles = makeStyles((theme) => ({
 	addBtn: {
@@ -75,131 +73,25 @@ const header = (
 	</TableRow>
 );
 
-function PanelListMode(props) {
-	const classes = useStyles();
-	const { children, handleAddBtn, ...other } = props;
-	const [loSrv, setLoSrv] = useState(0);
-	const [anchorEl, setAnchorEl] = useState(null);
-	const srvStore = useContext(RevStore);
-
-	// popover for stop
-	const handleClick = (ev, val) => {
-		console.log('[anchorEl]', ev, val);
-		setAnchorEl({
-			el: ev.currentTarget,
-			val: val,
-		});
-	};
-	const handleClose = () => {
-		setAnchorEl(null);
-	};
-	const handleStop = () => {
-		console.log('[stop]', anchorEl.val);
-		const val = anchorEl.val;
-		fetchReq(`./api/rev/?op=stop&cid=${val.cid}`, {
-			method: 'POST',
-		}, (d) => {
-			console.log('[rev][stop]', d);
-			setAnchorEl(null);
-			srvStore.set(d);
-		}, (err) => {
-			console.log('[rev][stop]err', err);
-			setDialog({
-				title: 'Error',
-				msg: err,
-			});
-		});
-	}
-	const handleKS = (e, val) => {
-		console.log('[KS]', e, val);
-		const ks = (val.pause) ? '0' : '1';
-		fetchReq(`./api/rev/?op=ks&cid=${val.cid}&val=${ks}`, {
-			method: 'POST',
-		}, (d) => {
-			console.log('[rev][ks]', d);
-			srvStore.set(d);
-		}, (err) => {
-			console.log('[rev][ks]err', err);
-			setDialog({
-				title: 'Error',
-				msg: err,
-			});
-		});
-	}
-
-	useEffect(() => {
-		let t = null;
-		let pull = () => {
-			let intv = props.interval || 15 * 1000;
-
-			// console.log('[pull][rev]', intv);
-			fetchReq('./api/rev/').then((d) => {
-				// console.log(d);
-				srvStore.set(d);
-			});
-			t = setTimeout(pull, intv);
-		};
-		pull();
-		return () => {
-			clearTimeout(t);
-			// console.log('[pull][rev]stop');
-		};
-	}, [props.interval]);
-
-	const renderRow = (v, idx) => {
-		return (
-			<TableRow hover role="checkbox" tabIndex={-1} key={idx}>
-				<TableCell key='op'>
-					<Tooltip title="Stop" aria-label="stop">
-						<Fab size="small" color="secondary" onClick={(e) => handleClick(e, v)}>
-							<ClearIcon />
-						</Fab>
-					</Tooltip>
-				</TableCell>
-				<TableCell key='ks'>
-					<Switch color="primary" checked={v.pause} onChange={(e) => handleKS(e, v)} name="pause" />
-				</TableCell>
-				<TableCell key='id'>{v.id}</TableCell>
-				<TableCell key='addr' align='right'>{v.addr}</TableCell>
-				<TableCell key='target' align='right'>{v.target}</TableCell>
-			</TableRow>
-		);
-	}
-
+const renderRow = ({ v, idx, onClick, onKillSwitch }) => {
 	return (
-		<div>
-			<Popover
-				open={anchorEl !== null}
-				onClose={handleClose}
-				anchorEl={anchorEl?.el}
-				anchorOrigin={{
-					vertical: 'top',
-					horizontal: 'left',
-				}}
-				transformOrigin={{
-					vertical: 'top',
-					horizontal: 'left',
-				}}
-			>
-				<Box className={classes.popover}>
-					<p>確定要停止嗎?</p>
-					<ButtonGroup disableElevation variant="contained">
-						<Button className={classes.noUppercase} onClick={handleClose}>Cancel</Button>
-						<Button className={classes.noUppercase} onClick={handleStop} color="secondary" >Stop</Button>
-					</ButtonGroup>
-				</Box>
-			</Popover>
-
-			<Tooltip title="Add" aria-label="add">
-				<Fab color="primary" className={classes.addBtn} onClick={handleAddBtn}>
-					<AddIcon />
-				</Fab>
-			</Tooltip>
-			<DataList header={header} renderRow={renderRow} data={srvStore.val}></DataList>
-		</div>
+		<TableRow hover role="checkbox" tabIndex={-1} key={idx}>
+			<TableCell key='op'>
+				<Tooltip title="Stop" aria-label="stop">
+					<Fab size="small" color="secondary" onClick={onClick}>
+						<ClearIcon />
+					</Fab>
+				</Tooltip>
+			</TableCell>
+			<TableCell key='ks'>
+				<Switch color="primary" checked={v.pause} onChange={onKillSwitch} name="pause" />
+			</TableCell>
+			<TableCell key='id'>{v.id}</TableCell>
+			<TableCell key='addr' align='right'>{v.addr}</TableCell>
+			<TableCell key='target' align='right'>{v.target}</TableCell>
+		</TableRow>
 	);
 }
-
 
 function ReversePanel(props) {
 	const classes = useStyles();
@@ -207,6 +99,7 @@ function ReversePanel(props) {
 	const store = useContext(NodeStore);
 	const [isAddMode, setAddMode] = useState(false);
 
+	// TODO: merge to one State
 	const [useNode, setUseNode] = useState(null);
 	const [bindType, setBindType] = useState('any');
 	const [bindPort, setBindPort] = useState(19000);
@@ -257,10 +150,37 @@ function ReversePanel(props) {
 		});
 	}
 
+	const stopParamFn = (val) => {
+		return {
+			url: `./api/rev/?op=stop&cid=${val.cid}`,
+			param: {
+				method: 'POST',
+			},
+		};
+	}
+	const ksParamFn = (val) => {
+		const ks = (val.pause) ? '0' : '1';
+		return {
+			url: `./api/rev/?op=ks&cid=${val.cid}&val=${ks}`,
+			param: {
+				method: 'POST',
+			},
+		};
+	}
+
 	return (
 		<div>
 			{ !isAddMode &&
-				<PanelListMode handleAddBtn={() => setAddMode(true)}></PanelListMode>
+				<PanelListMode
+					handleAddBtn={() => setAddMode(true)}
+					useStyles={useStyles}
+					stopParamFn={stopParamFn}
+					ksParamFn={ksParamFn}
+					pullFn={() => fetchReq('./api/rev/')}
+					header={header}
+					renderRowFn={renderRow}
+					dataStore={RevStore}
+				></PanelListMode>
 			}
 			{ isAddMode &&
 				<Box className={classes.center}>

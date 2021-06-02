@@ -1,7 +1,7 @@
 
 // TODO: move some common part to comp.jsx
-import { h, Fragment, Component, render } from 'preact';
-import { useState, useEffect, useContext } from 'preact/hooks';
+import { h, Fragment } from 'preact';
+import { useState, useContext } from 'preact/hooks';
 
 import { NodeStore, LocalStore } from './store.js';
 import { fetchReq } from './api.js';
@@ -9,7 +9,6 @@ import { fetchReq } from './api.js';
 import { makeStyles } from '@material-ui/core/styles';
 
 import Tooltip from '@material-ui/core/Tooltip';
-import Popover from '@material-ui/core/Popover';
 
 import Box from '@material-ui/core/Box';
 import Fab from '@material-ui/core/Fab';
@@ -25,12 +24,11 @@ import FormControl from '@material-ui/core/FormControl';
 import FormLabel from '@material-ui/core/FormLabel';
 import Switch from '@material-ui/core/Switch';
 
-import AddIcon from '@material-ui/icons/Add';
 import ClearIcon from '@material-ui/icons/Clear';
 
 import TableCell from '@material-ui/core/TableCell';
 import TableRow from '@material-ui/core/TableRow';
-import { DataList, AlertDialog } from './comp.jsx';
+import { AlertDialog, PanelListMode } from './comp.jsx';
 
 const useStyles = makeStyles((theme) => ({
 	addBtn: {
@@ -81,131 +79,25 @@ const header = (
 	</TableRow>
 );
 
-function LocalPanelListMode(props) {
-	const classes = useStyles();
-	const { children, handleAddBtn, ...other } = props;
-	const [loSrv, setLoSrv] = useState(0);
-	const [anchorEl, setAnchorEl] = useState(null);
-	const srvStore = useContext(LocalStore);
-
-	// popover for stop
-	const handleClick = (ev, val) => {
-		console.log('[anchorEl]', ev, val);
-		setAnchorEl({
-			el: ev.currentTarget,
-			val: val,
-		});
-	};
-	const handleClose = () => {
-		setAnchorEl(null);
-	};
-	const handleStop = () => {
-		console.log('[stop]', anchorEl.val);
-		const val = anchorEl.val;
-		fetchReq(`./api/local/?op=stop&addr=${val.addr}`, {
-			method: 'POST',
-		}, (d) => {
-			console.log('[local][stop]', d);
-			setAnchorEl(null);
-			srvStore.set(d);
-		}, (err) => {
-			console.log('[local][stop]err', err);
-			setDialog({
-				title: 'Error',
-				msg: err,
-			});
-		});
-	}
-	const handleKS = (e, val) => {
-		console.log('[KS]', e, val);
-		const ks = (val.pause) ? '0' : '1';
-		fetchReq(`./api/local/?op=ks&addr=${val.addr}&val=${ks}`, {
-			method: 'POST',
-		}, (d) => {
-			console.log('[local][ks]', d);
-			srvStore.set(d);
-		}, (err) => {
-			console.log('[local][ks]err', err);
-			setDialog({
-				title: 'Error',
-				msg: err,
-			});
-		});
-	}
-
-	useEffect(() => {
-		let t = null;
-		let pull = () => {
-			let intv = props.interval || 15 * 1000;
-
-			// console.log('[pull][local]', intv);
-			fetchReq('./api/local/').then((d) => {
-				// console.log(d);
-				srvStore.set(d);
-			});
-			t = setTimeout(pull, intv);
-		};
-		pull();
-		return () => {
-			clearTimeout(t);
-			// console.log('[pull][local]stop');
-		};
-	}, [props.interval]);
-
-	const renderRow = (v, idx) => {
-		return (
-			<TableRow hover role="checkbox" tabIndex={-1} key={idx}>
-				<TableCell key='op'>
-					<Tooltip title="Stop" aria-label="stop">
-						<Fab size="small" color="secondary" onClick={(e) => handleClick(e, v)}>
-							<ClearIcon />
-						</Fab>
-					</Tooltip>
-				</TableCell>
-				<TableCell key='ks'>
-					<Switch color="primary" checked={v.pause} onChange={(e) => handleKS(e, v)} name="pause" />
-				</TableCell>
-				<TableCell key='id'>{v.id}</TableCell>
-				<TableCell key='addr' align='right'>{v.addr}</TableCell>
-				<TableCell key='args' align='right'>{v.args?.join(',')}</TableCell>
-			</TableRow>
-		);
-	}
-
+const renderRow = ({ v, idx, onClick, onKillSwitch }) => {
 	return (
-		<div>
-			<Popover
-				open={anchorEl !== null}
-				onClose={handleClose}
-				anchorEl={anchorEl?.el}
-				anchorOrigin={{
-					vertical: 'top',
-					horizontal: 'left',
-				}}
-				transformOrigin={{
-					vertical: 'top',
-					horizontal: 'left',
-				}}
-			>
-				<Box className={classes.popover}>
-					<p>確定要停止嗎?</p>
-					<ButtonGroup disableElevation variant="contained">
-						<Button className={classes.noUppercase} onClick={handleClose}>Cancel</Button>
-						<Button className={classes.noUppercase} onClick={handleStop} color="secondary" >Stop</Button>
-					</ButtonGroup>
-				</Box>
-			</Popover>
-
-			<Tooltip title="Add" aria-label="add">
-				<Fab color="primary" className={classes.addBtn} onClick={handleAddBtn}>
-					<AddIcon />
-				</Fab>
-			</Tooltip>
-			<DataList header={header} renderRow={renderRow} data={srvStore.val}></DataList>
-		</div>
+		<TableRow hover role="checkbox" tabIndex={-1} key={idx}>
+			<TableCell key='op'>
+				<Tooltip title="Stop" aria-label="stop">
+					<Fab size="small" color="secondary" onClick={onClick}>
+						<ClearIcon />
+					</Fab>
+				</Tooltip>
+			</TableCell>
+			<TableCell key='ks'>
+				<Switch color="primary" checked={v.pause} onChange={onKillSwitch} name="pause" />
+			</TableCell>
+			<TableCell key='id'>{v.id}</TableCell>
+			<TableCell key='addr' align='right'>{v.addr}</TableCell>
+			<TableCell key='args' align='right'>{v.args?.join(',')}</TableCell>
+		</TableRow>
 	);
 }
-
 
 function LocalPanel(props) {
 	const classes = useStyles();
@@ -213,6 +105,7 @@ function LocalPanel(props) {
 	const store = useContext(NodeStore);
 	const [isAddMode, setAddMode] = useState(false);
 
+	// TODO: merge to one State
 	const [srvType, setSrvType] = useState('socks');
 	const [useNode, setUseNode] = useState(null);
 	const [bindType, setBindType] = useState('local');
@@ -267,10 +160,37 @@ function LocalPanel(props) {
 		});
 	}
 
+	const stopParamFn = (val) => {
+		return {
+			url: `./api/local/?op=stop&addr=${val.addr}`,
+			param: {
+				method: 'POST',
+			},
+		};
+	}
+	const ksParamFn = (val) => {
+		const ks = (val.pause) ? '0' : '1';
+		return {
+			url: `./api/local/?op=ks&addr=${val.addr}&val=${ks}`,
+			param: {
+				method: 'POST',
+			},
+		};
+	}
+
 	return (
 		<div>
 			{ !isAddMode &&
-				<LocalPanelListMode handleAddBtn={() => setAddMode(true)}></LocalPanelListMode>
+				<PanelListMode
+					handleAddBtn={() => setAddMode(true)}
+					useStyles={useStyles}
+					stopParamFn={stopParamFn}
+					ksParamFn={ksParamFn}
+					pullFn={() => fetchReq('./api/local/')}
+					header={header}
+					renderRowFn={renderRow}
+					dataStore={LocalStore}
+				></PanelListMode>
 			}
 			{ isAddMode &&
 				<Box className={classes.center}>
