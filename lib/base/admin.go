@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	ErrReturn = errors.New("Error Return Code")
+	ErrReturn       = errors.New("Error Return Code")
 	ErrNotConnected = errors.New("Error not connected")
 )
 
@@ -136,7 +136,7 @@ func (a *Auth) GetConn2Hub(id string, op string) (p1 net.Conn, err error) {
 	return
 }
 
-func (a *Auth) GetConn2Client(id string, op string) (p1 net.Conn, err error) {
+func (a *Auth) GetConn2ClientWithKey(id string, op string, masterKey []byte) (p1 net.Conn, err error) {
 	// select client @ hub
 	p1, err = a.GetConn(H_select)
 	if err != nil {
@@ -144,7 +144,7 @@ func (a *Auth) GetConn2Client(id string, op string) (p1 net.Conn, err error) {
 	}
 	kit.WriteTagStr(p1, id)
 
-	if a.MasterKey != nil {
+	if masterKey != nil {
 		pass, err := kit.ReadTagByte(p1)
 		if err != nil {
 			return p1, err
@@ -152,7 +152,7 @@ func (a *Auth) GetConn2Client(id string, op string) (p1 net.Conn, err error) {
 
 		// signature & send
 		hashed := kit.HashBytes256(pass)
-		signature, _ := kit.SignECDSA(a.MasterKey, hashed)
+		signature, _ := kit.SignECDSA(masterKey, hashed)
 		kit.WriteTagByte(p1, signature)
 
 		ret64, err := kit.ReadVLen(p1)
@@ -178,4 +178,8 @@ func (a *Auth) GetConn2Client(id string, op string) (p1 net.Conn, err error) {
 		return p1, ErrReturn
 	}
 	return
+}
+
+func (a *Auth) GetConn2Client(id string, op string) (p1 net.Conn, err error) {
+	return a.GetConn2ClientWithKey(id, op, a.MasterKey)
 }
