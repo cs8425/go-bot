@@ -71,13 +71,14 @@ func NewConnPool() *ConnPool {
 }
 
 type loSrv struct {
-	ID    string       `json:"id"` // node id
-	Addr  string       `json:"addr"`
-	Args  []string     `json:"args,omitempty"`
-	Pause AtomicBool   `json:"pause,omitempty"` // atomic bool
-	Admin *base.Auth   `json:"-"`
-	Lis   net.Listener `json:"-"`
-	Conns *ConnPool    `json:"-"`
+	ID    string        `json:"id"` // node id
+	Addr  string        `json:"addr"`
+	Args  []string      `json:"args,omitempty"`
+	Pause AtomicBool    `json:"pause,omitempty"` // atomic bool
+	Admin *base.Auth    `json:"-"`
+	Lis   net.Listener  `json:"-"`
+	Conns *ConnPool     `json:"-"`
+	Sess  *smux.Session // mux for MasterKey
 }
 
 func (srv *loSrv) Init() error {
@@ -87,6 +88,20 @@ func (srv *loSrv) Init() error {
 		return err
 	}
 	srv.Lis = lis
+
+	// use mux for MasterKey
+	// TODO: get key from config
+	if srv.Admin.MasterKey != nil {
+		mux, err := srv.Admin.GetMux2ClientWithKey(srv.ID, srv.Admin.MasterKey)
+		if err != nil {
+			vlog.Vln(2, "[local]Error MasterKey:", err.Error())
+			lis.Close()
+			srv.Lis = nil
+			return err
+		}
+		srv.Sess = mux
+	}
+
 	return nil
 }
 
@@ -112,6 +127,13 @@ func (srv *loSrv) Start() {
 	}
 }
 
+func (srv *loSrv) getConn(op string) (net.Conn, error) {
+	if srv.Sess == nil {
+		return srv.Admin.GetConn2Client(srv.ID, op)
+	}
+	return srv.Admin.GetMuxConn(srv.Sess, op)
+}
+
 func (srv *loSrv) handleClient(p0 net.Conn) {
 	defer p0.Close()
 
@@ -119,15 +141,12 @@ func (srv *loSrv) handleClient(p0 net.Conn) {
 	cp.Add(p0)
 	defer cp.Del(p0)
 
-	admin := srv.Admin
-	id := srv.ID
 	argv := srv.Args
-
 	mode := argv[0]
 	switch mode {
 	case "socks":
 		//vlog.Vln(2, "socksv5")
-		p1, err := admin.GetConn2Client(id, base.B_fast0)
+		p1, err := srv.getConn(base.B_fast0)
 		if err != nil {
 			vlog.Vln(2, "[socks]init err", err)
 			return
@@ -139,7 +158,7 @@ func (srv *loSrv) handleClient(p0 net.Conn) {
 
 	case "http":
 		//vlog.Vln(2, "http")
-		p1, err := admin.GetConn2Client(id, base.B_fast0)
+		p1, err := srv.getConn(base.B_fast0)
 		if err != nil {
 			vlog.Vln(2, "[http]init err", err)
 			return
@@ -156,7 +175,7 @@ func (srv *loSrv) handleClient(p0 net.Conn) {
 			return
 		}
 
-		p1, err := admin.GetConn2Client(id, base.B_fast0)
+		p1, err := srv.getConn(base.B_fast0)
 		if err != nil {
 			vlog.Vln(2, "[raw]init err", err)
 			return
