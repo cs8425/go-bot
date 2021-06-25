@@ -48,4 +48,5 @@ const (
 	B_fast2  = "l"      // fast proxy server
 	B_reconn = "reconn" // reconnect
 	B_kill   = "bye"    // kill self
+	B_mux    = "mux"    // init mux for connection reuse
 )

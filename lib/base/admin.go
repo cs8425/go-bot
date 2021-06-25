@@ -183,3 +183,39 @@ func (a *Auth) GetConn2ClientWithKey(id string, op string, masterKey []byte) (p1
 func (a *Auth) GetConn2Client(id string, op string) (p1 net.Conn, err error) {
 	return a.GetConn2ClientWithKey(id, op, a.MasterKey)
 }
+
+func (a *Auth) GetMux2ClientWithKey(id string, masterKey []byte) (sess *smux.Session, err error) {
+	p1, err := a.GetConn2ClientWithKey(id, B_mux, masterKey)
+	if err != nil {
+		return nil, err
+	}
+
+	smuxConfig := smux.DefaultConfig()
+	return smux.Server(p1, smuxConfig) // client here
+}
+
+func (a *Auth) GetMux2Client(id string) (sess *smux.Session, err error) {
+	return a.GetMux2ClientWithKey(id, a.MasterKey)
+}
+
+func (a *Auth) GetMuxConn(sess *smux.Session, op string) (p1 net.Conn, err error) {
+	p1, err = sess.OpenStream()
+	if err != nil {
+		return
+	}
+
+	// op to client
+	kit.WriteTagStr(p1, op)
+
+	// return code
+	ret64, err := kit.ReadVLen(p1)
+	if err != nil {
+		//Vln(2, "[local]net err", err)
+		return
+	}
+	if int(ret64) != 0 {
+		//Vln(2, "[local]select err", ret)
+		return p1, ErrReturn
+	}
+	return
+}

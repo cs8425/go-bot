@@ -3,10 +3,12 @@ package base
 import (
 	"io"
 	"net"
-	//	"os"
+
+	//"os"
 	"os/exec"
 	"sync"
-	//	"time"
+
+	//"time"
 	"crypto/rand"
 	"runtime"
 
@@ -167,16 +169,16 @@ func (c *Client) Start(addr string) {
 				break
 			}
 
-			go c.handle1(p1, mux)
+			go c.handle1(p1, mux, false)
 		}
 		//Vln(2, "connect end")
 		kit.SleepRand()
 	}
 }
 
-func (c *Client) handle1(p1 net.Conn, mux *smux.Session) {
+func (c *Client) handle1(p1 net.Conn, mux *smux.Session, skipKey bool) {
 
-	if c.MasterKey != nil {
+	if !skipKey && c.MasterKey != nil {
 		pass := make([]byte, 32, 32)
 		rand.Read(pass)
 		kit.WriteTagByte(p1, pass)
