@@ -1,6 +1,6 @@
 // TODO: move some common part to comp.jsx
 import { h, Fragment } from 'preact';
-import { useState, useEffect, useContext } from 'preact/hooks';
+import { useState, useEffect, useRef, useContext } from 'preact/hooks';
 
 import { NodeStore, KeyStore } from './store.js';
 import { fetchReq } from './api.js';
@@ -20,11 +20,13 @@ import MenuItem from '@material-ui/core/MenuItem';
 
 import AddIcon from '@material-ui/icons/Add';
 import ClearIcon from '@material-ui/icons/Clear';
+import FolderOpenIcon from '@material-ui/icons/FolderOpen';
 
 import Card from '@material-ui/core/Card';
 import CardHeader from '@material-ui/core/CardHeader';
 
 import { AlertDialog } from './comp.jsx';
+import { DragNdrop } from './dragzone.jsx';
 
 const useStyles = makeStyles((theme) => ({
 	addBtn: {
@@ -48,11 +50,11 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 function PanelListKeys(props) {
-	const { children, useStyles, handleAddBtn, stopParamFn, pullFn, dataStore, ...other } = props;
+	const { children, useStyles, stopParamFn, pullFn, dataStore, masterKeys, setMasterKeys, ...other } = props;
 	const classes = useStyles();
 	const [anchorEl, setAnchorEl] = useState(null);
 	// const srvStore = useContext(dataStore);
-	const [masterKeys, setMasterKeys] = useState([]);
+	// const [masterKeys, setMasterKeys] = useState([]);
 
 	// popover for stop
 	const handleClick = (ev, val) => {
@@ -126,12 +128,6 @@ function PanelListKeys(props) {
 				</Box>
 			</Popover>
 
-			<Tooltip title="Add" aria-label="add">
-				<Fab color="primary" className={classes.addBtn} onClick={handleAddBtn}>
-					<AddIcon />
-				</Fab>
-			</Tooltip>
-
 			{masterKeys.map((v, i) => {
 				return (
 					<Card className={classes.card} variant="outlined">
@@ -170,6 +166,9 @@ function KeyPanel(props) {
 	const { children, ...other } = props;
 	const store = useContext(NodeStore);
 	const [isAddMode, setAddMode] = useState(false);
+
+	const fileRef = useRef();
+	const [masterKeys, setMasterKeys] = useState([]);
 
 	// TODO: merge to one State
 	const [useNode, setUseNode] = useState(null);
@@ -225,17 +224,72 @@ function KeyPanel(props) {
 		});
 	};
 
+	const handleLoadBtn = (e) => {
+		// console.log('[load]click', e);
+		fileRef.current.open();
+	}
+	const handleFile = (val) => {
+		// console.log('[file]', val);
+		let reader = new FileReader();
+		reader.onload = (e) => {
+			const json = JSON.parse(e.target.result);
+			// console.log(e, json);
+			let reqs = [];
+			const keys = json?.keys;
+			for (let k in keys) {
+				let param = {
+					uuid: k,
+					key: keys[k],
+				};
+				reqs.push(fetch('./api/key/?op=set', {
+					body: JSON.stringify(param),
+					method: 'POST',
+				}));
+			}
+
+			reqs.length && Promise.allSettled(reqs).then((rets) => {
+				// {status: "fulfilled", value: [...]}
+				console.log('[load]key state', rets);
+				let last = rets.pop();
+				// TODO: error handle
+				last.value.json().then(function (d) {
+					setMasterKeys(d);
+				});
+			});
+		}
+		reader.readAsText(val[0]);
+	};
+
 	return (
 		<div>
 			<AlertDialog data={dialogData} setDialog={setDialog}></AlertDialog>
 			{!isAddMode &&
-				<PanelListKeys
-					handleAddBtn={() => setAddMode(true)}
-					useStyles={useStyles}
-					stopParamFn={stopParamFn}
-					pullFn={pullFn}
-					dataStore={KeyStore}
-				></PanelListKeys>
+				<DragNdrop ref={fileRef} handleFile={handleFile} onClick={false}>
+					<Tooltip title="Add" aria-label="add">
+						<Fab color="primary" className={classes.addBtn} onClick={() => setAddMode(true)}>
+							<AddIcon />
+						</Fab>
+					</Tooltip>
+					<Tooltip title="Load" aria-label="load">
+						<Fab color="primary" className={classes.addBtn} onClick={handleLoadBtn}>
+							<FolderOpenIcon />
+						</Fab>
+					</Tooltip>
+					{/* TODO: clear all */}
+					{/* <Tooltip title="Clear all" aria-label="clear all">
+						<Fab color="secondary" className={classes.addBtn}>
+							<ClearIcon />
+						</Fab>
+					</Tooltip> */}
+					<PanelListKeys
+						useStyles={useStyles}
+						stopParamFn={stopParamFn}
+						pullFn={pullFn}
+						dataStore={KeyStore}
+						masterKeys={masterKeys}
+						setMasterKeys={setMasterKeys}
+					></PanelListKeys>
+				</DragNdrop>
 			}
 			{isAddMode &&
 				<Box className={classes.center}>

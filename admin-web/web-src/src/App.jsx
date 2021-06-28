@@ -181,11 +181,10 @@ function app() {
 					<Tab label="Local bind" {...a11yProps(1)} />
 					<Tab label="Remote bind" {...a11yProps(2)} />
 
-					<Tab label="Keys" {...a11yProps('key')} />
+					<Tooltip title="Import Keys" aria-label="import keys" {...a11yProps('key')}><Tab icon={<VpnKeyIcon />} /></Tooltip>
 
 					<Tooltip title="Load" aria-label="load"><Tab onClick={handleLoadBtn} icon={<FolderOpenIcon />} {...a11yProps('load')} /></Tooltip>
 					<Tooltip title="Save" aria-label="save"><Tab onClick={handleSave} icon={<SaveIcon />} {...a11yProps('save')} /></Tooltip>
-					{/* <Tooltip title="Import Keys" aria-label="import keys"><Tab onClick={handleLoadBtn} icon={<VpnKeyIcon />} /></Tooltip> */}
 				</Tabs>
 			</AppBar>
 
@@ -200,13 +199,14 @@ function app() {
 					<TabPanel value={currTab} index={2}>
 						<RevStore.Provider value={{ val: revStore, set: setRevStore }}><ReversePanel /></RevStore.Provider>
 					</TabPanel>
-
-					<TabPanel value={currTab} index={'key'}>
-						{/* op(del), node, has key */}
-						<KeyStore.Provider value={{ val: keyStore, set: setKeyStore }}><KeyPanel /></KeyStore.Provider>
-					</TabPanel>
 				</NodeStore.Provider>
 			</DragNdrop>
+
+			<NodeStore.Provider value={nodeStore}>
+				<TabPanel value={currTab} index={'key'}>
+					<KeyStore.Provider value={{ val: keyStore, set: setKeyStore }}><KeyPanel /></KeyStore.Provider>
+				</TabPanel>
+			</NodeStore.Provider>
 
 			{/* dummy link for download file */}
 			<a style="display: none;" ref={dummyDlEl}></a>
