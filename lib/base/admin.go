@@ -78,7 +78,10 @@ func (a *Auth) InitConn(conn net.Conn) (*smux.Session, error) {
 
 	// signature & send
 	hashed := kit.HashBytes256(pass)
-	signature, _ := kit.SignECDSA(a.Private_ECDSA, hashed)
+	signature, err := kit.SignECDSA(a.Private_ECDSA, hashed)
+	if err != nil {
+		return nil, err
+	}
 	kit.WriteTagByte(enccon, signature)
 
 	// ACK
@@ -152,7 +155,10 @@ func (a *Auth) GetConn2ClientWithKey(id string, op string, masterKey []byte) (p1
 
 		// signature & send
 		hashed := kit.HashBytes256(pass)
-		signature, _ := kit.SignECDSA(masterKey, hashed)
+		signature, err := kit.SignECDSA(masterKey, hashed)
+		if err != nil {
+			return p1, err
+		}
 		kit.WriteTagByte(p1, signature)
 
 		ret64, err := kit.ReadVLen(p1)
