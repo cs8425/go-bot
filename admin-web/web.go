@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -133,7 +134,8 @@ func (api *WebAPI) Local(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			goto ERR400
 		}
-		if err := srv.Init(); err != nil {
+		masterKey := api.getMasterKey(srv.ID)
+		if err := srv.Init(masterKey); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -257,7 +259,8 @@ func (api *WebAPI) Reverse(w http.ResponseWriter, r *http.Request) {
 			goto ERR400
 		}
 
-		p1, err := api.adm.GetConn2Client(srv.ID, base.B_bind)
+		masterKey := api.getMasterKey(srv.ID)
+		p1, err := api.adm.GetConn2ClientWithKey(srv.ID, base.B_bind, masterKey)
 		if err != nil {
 			vlog.Vln(2, "[rev]init err", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -388,12 +391,6 @@ func (api *WebAPI) Keys(w http.ResponseWriter, r *http.Request) {
 
 	switch op {
 	case "set": // set: uuid, key
-		// uuid := r.Form.Get("uuid")
-		// keyStr := r.Form.Get("key")
-		// key, err := base64.StdEncoding.DecodeString(keyStr)
-		// if err != nil {
-		// 	goto ERR400
-		// }
 		uuid, key, err := api.parseKey(r)
 		if err != nil {
 			goto ERR400
@@ -404,7 +401,6 @@ func (api *WebAPI) Keys(w http.ResponseWriter, r *http.Request) {
 		api.mx.Unlock()
 		goto RETOK
 	case "rm":
-		// uuid := r.Form.Get("uuid")
 		uuid, _, err := api.parseKey(r)
 		if err != nil {
 			goto ERR400
@@ -447,6 +443,17 @@ func (api *WebAPI) parseKey(r *http.Request) (string, []byte, error) {
 		return "", nil, err
 	}
 	return p.ID, p.Key, nil
+}
+
+func (api *WebAPI) getMasterKey(uuid string) []byte {
+	api.mx.RLock()
+	defer api.mx.RUnlock()
+	tags := strings.SplitN(uuid, "/", 2)
+	masterKey, ok := api.keys[tags[0]]
+	if !ok && api.adm.MasterKey != nil {
+		masterKey = api.adm.MasterKey
+	}
+	return masterKey
 }
 
 // func (api *WebAPI) Cmd(w http.ResponseWriter, r *http.Request) {

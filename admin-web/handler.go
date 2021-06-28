@@ -81,7 +81,7 @@ type loSrv struct {
 	Sess  *smux.Session // mux for MasterKey
 }
 
-func (srv *loSrv) Init() error {
+func (srv *loSrv) Init(masterKey []byte) error {
 	lis, err := net.Listen("tcp", srv.Addr)
 	if err != nil {
 		vlog.Vln(2, "[local]Error listening:", err.Error())
@@ -90,9 +90,9 @@ func (srv *loSrv) Init() error {
 	srv.Lis = lis
 
 	// use mux for MasterKey
-	// TODO: get key from config
-	if srv.Admin.MasterKey != nil {
-		mux, err := srv.Admin.GetMux2ClientWithKey(srv.ID, srv.Admin.MasterKey)
+	if masterKey != nil {
+		vlog.Vln(2, "[local]use MasterKey:", srv.Addr)
+		mux, err := srv.Admin.GetMux2ClientWithKey(srv.ID, masterKey)
 		if err != nil {
 			vlog.Vln(2, "[local]Error MasterKey:", err.Error())
 			lis.Close()
