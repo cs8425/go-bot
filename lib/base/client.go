@@ -187,12 +187,15 @@ func (c *Client) handle1(p1 net.Conn, mux *smux.Session, skipKey bool) {
 		signature, err := kit.ReadTagByte(p1)
 		if err != nil {
 			Vln(5, "can not read master signature!")
+			p1.Close()
 			return
 		}
 		hashed := kit.HashBytes256(pass)
 		ok := kit.VerifyECDSA(c.MasterKey, hashed, signature)
 		if !ok {
 			Vln(5, "master key Verify error!")
+			kit.WriteVLen(p1, int64(1))
+			p1.Close()
 			return
 		}
 		// ret

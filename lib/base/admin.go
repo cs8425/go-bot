@@ -177,7 +177,7 @@ func (a *Auth) GetConn2ClientWithKey(id string, op string, masterKey []byte) (p1
 	ret64, err := kit.ReadVLen(p1)
 	if err != nil {
 		//Vln(2, "[local]net err", err)
-		return
+		return p1, err
 	}
 	if int(ret64) != 0 {
 		//Vln(2, "[local]select err", ret)
