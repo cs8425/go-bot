@@ -2,6 +2,7 @@ package main
 
 import (
 	//"encoding/binary"
+	// "encoding/base64"
 	"encoding/json"
 	"time"
 
@@ -35,6 +36,8 @@ type WebAPI struct {
 	srvInfo   []*loSrv     // atomic.Value
 	revNextID uint32       // atomic add
 	revInfo   []*revSrv    // atomic.Value
+
+	keys map[string][]byte // master keys for bots
 }
 
 func NewWebAPI(admin *base.Auth) *WebAPI {
@@ -44,6 +47,8 @@ func NewWebAPI(admin *base.Auth) *WebAPI {
 
 		revNextID: 1,
 		revInfo:   make([]*revSrv, 0),
+
+		keys: make(map[string][]byte),
 	}
 	// TODO: worker
 	return api
@@ -367,6 +372,81 @@ func (api *WebAPI) reverseBind(r *http.Request) (*revSrv, error) {
 	}
 	srv.Pause.Set(p.Pause)
 	return srv, nil
+}
+
+func (api *WebAPI) Keys(w http.ResponseWriter, r *http.Request) {
+	if ok := checkReqType(w, r, "RW", true); !ok {
+		return
+	}
+
+	op := r.Form.Get("op")
+	// uuid := r.Form.Get("uuid")
+	// key := r.Form.Get("key")
+	if r.Method == "GET" {
+		goto RETOK
+	}
+
+	switch op {
+	case "set": // set: uuid, key
+		// uuid := r.Form.Get("uuid")
+		// keyStr := r.Form.Get("key")
+		// key, err := base64.StdEncoding.DecodeString(keyStr)
+		// if err != nil {
+		// 	goto ERR400
+		// }
+		uuid, key, err := api.parseKey(r)
+		if err != nil {
+			goto ERR400
+		}
+		vlog.Vln(3, "[keys][set]", uuid)
+		api.mx.Lock()
+		api.keys[uuid] = key
+		api.mx.Unlock()
+		goto RETOK
+	case "rm":
+		// uuid := r.Form.Get("uuid")
+		uuid, _, err := api.parseKey(r)
+		if err != nil {
+			goto ERR400
+		}
+		vlog.Vln(3, "[keys][rm]", uuid)
+		api.mx.Lock()
+		delete(api.keys, uuid)
+		api.mx.Unlock()
+		goto RETOK
+
+	default:
+		goto ERR400
+	}
+
+RETOK:
+	{
+		api.mx.RLock()
+		defer api.mx.RUnlock()
+		list := make([]string, 0, len(api.keys))
+		for uuid, _ := range api.keys {
+			list = append(list, uuid)
+		}
+		JsonRes(w, list)
+	}
+	return
+ERR400:
+	http.Error(w, "bad request", http.StatusBadRequest)
+	return
+}
+
+func (api *WebAPI) parseKey(r *http.Request) (string, []byte, error) {
+	type param struct {
+		ID  string `json:"uuid"`
+		Key []byte `json:"key"`
+	}
+	var p param
+
+	err := json.NewDecoder(r.Body).Decode(&p)
+	if err != nil {
+		return "", nil, err
+	}
+	return p.ID, p.Key, nil
 }
 
 // func (api *WebAPI) Cmd(w http.ResponseWriter, r *http.Request) {

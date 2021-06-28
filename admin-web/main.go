@@ -219,6 +219,7 @@ func webStart(api *WebAPI, addr string) {
 	mux.HandleFunc("/api/node/", api.Node)
 	mux.HandleFunc("/api/local/", api.Local)
 	mux.HandleFunc("/api/rev/", api.Reverse)
+	mux.HandleFunc("/api/key/", api.Keys)
 	// mux.HandleFunc("/api/cmd", api.Cmd)
 
 	// SPA
