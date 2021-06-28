@@ -12,3 +12,8 @@ const RevStore = createContext({
 	val: [],
 });
 export { RevStore };
+
+const KeyStore = createContext({
+	val: [],
+});
+export { KeyStore };

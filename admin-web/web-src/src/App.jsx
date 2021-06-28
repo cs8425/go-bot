@@ -1,12 +1,13 @@
 import { h, Fragment, Component } from 'preact';
 import { useState, useRef } from 'preact/hooks';
 
-import { NodeStore, LocalStore, RevStore } from './store.js';
+import { NodeStore, LocalStore, RevStore, KeyStore } from './store.js';
 
 // 引入組件
 import { NodePanel } from './compNode.jsx';
 import { LocalPanel } from './compLocal.jsx';
 import { ReversePanel } from './compReverse.jsx';
+import { KeyPanel } from './compKey.jsx';
 import { DragNdrop } from './dragzone.jsx';
 
 import AppBar from '@material-ui/core/AppBar';
@@ -16,6 +17,7 @@ import TabPanel from './Tabs.jsx';
 
 import SaveIcon from '@material-ui/icons/Save';
 import FolderOpenIcon from '@material-ui/icons/FolderOpen';
+import VpnKeyIcon from '@material-ui/icons/VpnKey';
 import Tooltip from '@material-ui/core/Tooltip';
 
 import { makeStyles, styled } from "@material-ui/core/styles";
@@ -24,6 +26,7 @@ function a11yProps(index) {
 	return {
 		id: `tab-${index}`,
 		"aria-controls": `tabpanel-${index}`,
+		'value': index,
 	};
 }
 
@@ -45,13 +48,16 @@ function app() {
 	const [nodeStore, setNodeStore] = useState([]);
 	const [localStore, setLocalStore] = useState([]);
 	const [revStore, setRevStore] = useState([]);
+	const [keyStore, setKeyStore] = useState([]);
 	const dummyDlEl = useRef(null);
 	const fileRef = useRef();
 
 	const handleTabChange = (event, newValue) => {
-		if (newValue > 2) {
-			console.log('[load/save]', newValue);
-			return;
+		switch (newValue) {
+			case 'load':
+			case 'save':
+				console.log('[load/save]', newValue);
+				return;
 		}
 		setCurrTab(newValue);
 	};
@@ -175,8 +181,11 @@ function app() {
 					<Tab label="Local bind" {...a11yProps(1)} />
 					<Tab label="Remote bind" {...a11yProps(2)} />
 
-					<Tooltip title="Load" aria-label="load"><Tab onClick={handleLoadBtn} icon={<FolderOpenIcon />} {...a11yProps(3)} /></Tooltip>
-					<Tooltip title="Save" aria-label="save"><Tab onClick={handleSave} icon={<SaveIcon />} {...a11yProps(4)} /></Tooltip>
+					<Tab label="Keys" {...a11yProps('key')} />
+
+					<Tooltip title="Load" aria-label="load"><Tab onClick={handleLoadBtn} icon={<FolderOpenIcon />} {...a11yProps('load')} /></Tooltip>
+					<Tooltip title="Save" aria-label="save"><Tab onClick={handleSave} icon={<SaveIcon />} {...a11yProps('save')} /></Tooltip>
+					{/* <Tooltip title="Import Keys" aria-label="import keys"><Tab onClick={handleLoadBtn} icon={<VpnKeyIcon />} /></Tooltip> */}
 				</Tabs>
 			</AppBar>
 
@@ -190,6 +199,11 @@ function app() {
 					</TabPanel>
 					<TabPanel value={currTab} index={2}>
 						<RevStore.Provider value={{ val: revStore, set: setRevStore }}><ReversePanel /></RevStore.Provider>
+					</TabPanel>
+
+					<TabPanel value={currTab} index={'key'}>
+						{/* op(del), node, has key */}
+						<KeyStore.Provider value={{ val: keyStore, set: setKeyStore }}><KeyPanel /></KeyStore.Provider>
 					</TabPanel>
 				</NodeStore.Provider>
 			</DragNdrop>
