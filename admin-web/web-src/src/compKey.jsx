@@ -47,6 +47,9 @@ const useStyles = makeStyles((theme) => ({
 	cardAction: {
 		margin: '0 1rem 0 0',
 	},
+	cardContent: {
+		'overflow-wrap': 'anywhere',
+	},
 }));
 
 function PanelListKeys(props) {
@@ -135,6 +138,7 @@ function PanelListKeys(props) {
 							// root: classes.card,
 							// action: classes.cardAction,
 							avatar: classes.cardAction,
+							content: classes.cardContent,
 						}}
 							avatar={
 								<Tooltip title="Remove" aria-label="remove">
@@ -260,6 +264,19 @@ function KeyPanel(props) {
 		reader.readAsText(val[0]);
 	};
 
+	const handleClearBtn = (e) => {
+		fetchReq('./api/key/?op=clr', {
+			method: 'POST',
+		}, (d) => {
+			setMasterKeys(d);
+		}, (err) => {
+			setDialog({
+				title: 'Error',
+				msg: err,
+			});
+		});
+	}
+
 	return (
 		<div>
 			<AlertDialog data={dialogData} setDialog={setDialog}></AlertDialog>
@@ -275,12 +292,11 @@ function KeyPanel(props) {
 							<FolderOpenIcon />
 						</Fab>
 					</Tooltip>
-					{/* TODO: clear all */}
-					{/* <Tooltip title="Clear all" aria-label="clear all">
-						<Fab color="secondary" className={classes.addBtn}>
+					<Tooltip title="Clear all" aria-label="clear all">
+						<Fab color="secondary" className={classes.addBtn} onClick={handleClearBtn}>
 							<ClearIcon />
 						</Fab>
-					</Tooltip> */}
+					</Tooltip>
 					<PanelListKeys
 						useStyles={useStyles}
 						stopParamFn={stopParamFn}
