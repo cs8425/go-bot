@@ -53,12 +53,9 @@ function PanelListKeys(props) {
 	const { children, useStyles, stopParamFn, pullFn, dataStore, masterKeys, setMasterKeys, ...other } = props;
 	const classes = useStyles();
 	const [anchorEl, setAnchorEl] = useState(null);
-	// const srvStore = useContext(dataStore);
-	// const [masterKeys, setMasterKeys] = useState([]);
 
 	// popover for stop
 	const handleClick = (ev, val) => {
-		console.log('[anchorEl]', ev, val);
 		setAnchorEl({
 			el: ev.currentTarget,
 			val: val,
@@ -175,7 +172,7 @@ function KeyPanel(props) {
 			uuid: useNode?.split('/')[0],
 			key: masterKey,
 		};
-		console.log('[key][add]', param);
+		console.log('[key][add]', param.uuid);
 		fetchReq('./api/key/?op=set', {
 			body: JSON.stringify(param),
 			method: 'POST',
