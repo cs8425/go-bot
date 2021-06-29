@@ -109,7 +109,7 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 function PopoverDialog(props) {
-	const { children, data, setData, onConfirm, onClose, ...other } = props;
+	const { children, footer, data, setData, onConfirm, onClose, ...other } = props;
 	const classes = useStyles();
 	const handleClose = () => {
 		if (typeof onClose === 'function') {
@@ -145,10 +145,13 @@ function PopoverDialog(props) {
 		>
 			<Box className={classes.popover}>
 				{children}
-				<ButtonGroup disableElevation variant="contained">
-					<Button className={classes.noUppercase} onClick={handleClose}>Cancel</Button>
-					<Button className={classes.noUppercase} onClick={handleConfirm} color="secondary" >Remove</Button>
-				</ButtonGroup>
+				{!footer &&
+					<ButtonGroup disableElevation variant="contained">
+						<Button className={classes.noUppercase} onClick={handleClose}>Cancel</Button>
+						<Button className={classes.noUppercase} onClick={handleConfirm} color="secondary" >Remove</Button>
+					</ButtonGroup>
+				}
+				{footer}
 			</Box>
 		</Popover>
 	);

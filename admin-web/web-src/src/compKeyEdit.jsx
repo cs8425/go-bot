@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useContext } from 'preact/hooks';
 import { NodeStore } from './store.js';
 import { fetchReq, dumpJson } from './api.js';
 
-import { makeStyles } from '@material-ui/core/styles';
+import { makeStyles, withStyles } from '@material-ui/core/styles';
 
 import Tooltip from '@material-ui/core/Tooltip';
 
@@ -19,6 +19,7 @@ import MenuItem from '@material-ui/core/MenuItem';
 
 import AddIcon from '@material-ui/icons/Add';
 import ClearIcon from '@material-ui/icons/Clear';
+import DeleteIcon from '@material-ui/icons/Delete';
 import DeleteSweepIcon from '@material-ui/icons/DeleteSweep';
 import EditIcon from '@material-ui/icons/Edit';
 import FolderOpenIcon from '@material-ui/icons/FolderOpen';
@@ -29,6 +30,16 @@ import CardHeader from '@material-ui/core/CardHeader';
 
 import { AlertDialog, PopoverDialog } from './comp.jsx';
 import { DragNdrop } from './dragzone.jsx';
+
+const InfoButton = withStyles((theme) => ({
+	root: {
+		color: theme.palette.getContrastText(theme.palette.info.main),
+		backgroundColor: theme.palette.info.main,
+		'&:hover': {
+			backgroundColor: theme.palette.info.dark,
+		},
+	},
+}))(Button);
 
 const useStyles = makeStyles((theme) => ({
 	addBtn: {
@@ -74,16 +85,28 @@ function PanelListKeys(props) {
 			});
 		}
 	}
+	const handleEdit = (e) => {
+		const val = popover.val;
+		console.log('[key][edit]', val);
+	}
+	const handleRemove = (e) => {
+		const val = popover.val;
+		console.log('[key][rm]', val);
+	}
 
 	return (
 		<div>
 			<PopoverDialog
 				data={popover}
 				setData={setPopover}
-				onConfirm={handleStop}
-			>
-				<p>確定要移除嗎?</p>
-			</PopoverDialog>
+				footer={
+					<ButtonGroup variant="contained">
+						<InfoButton onClick={handleEdit} color="primary" startIcon={<EditIcon />}>修改</InfoButton>
+						<Button onClick={() => setPopover(null)} startIcon={<ClearIcon />}>取消</Button>
+						<Button onClick={handleRemove} color="secondary" startIcon={<DeleteIcon />}>刪除</Button>
+					</ButtonGroup>
+				}
+			/>
 
 			{masterKeys.map((v, i) => {
 				return (
@@ -121,22 +144,19 @@ function KeyEditPanel(props) {
 
 	const fileRef = useRef();
 	const dummyDlEl = useRef(null);
-	const [masterKeys, setMasterKeys] = useState([]);
-
-	// TODO: merge to one State
-	const [useNode, setUseNode] = useState('');
-	const [masterKey, setMasterKey] = useState(null);
-
 	const [dialogData, setDialog] = useState(null);
 	const [popover, setPopover] = useState(null);
 
+	const [masterKeys, setMasterKeys] = useState([]);
+	const [editData, setEditData] = useState({});
+
 	// add req & cancel
 	const handleCancel = () => {
-		setMasterKey('');
+		setEditData({});
 		setAddMode(false);
 	}
 	const handleAdd = (e) => {
-		if (!useNode) {
+		if (!editData?.node) {
 			// alert
 			setDialog({
 				title: '請選擇節點!!',
@@ -144,10 +164,11 @@ function KeyEditPanel(props) {
 			return;
 		}
 		let param = {
-			uuid: useNode?.split('/')[0],
-			key: masterKey,
+			uuid: editData?.node?.split('/')[0],
+			key: editData?.masterKey,
+			note: editData?.note,
 		};
-		console.log('[key][add]', param);
+		console.log('[key][add]', editData, param);
 
 		handleCancel();
 	}
@@ -234,8 +255,8 @@ function KeyEditPanel(props) {
 							required
 							select
 							label="Node"
-							value={useNode}
-							onChange={(e) => setUseNode(e.target.value)}
+							value={editData.node || ''}
+							onChange={(e) => setEditData({...editData, node: e.target.value})}
 							helperText="Please select a using node"
 						>
 							<MenuItem value={''}>---</MenuItem>
@@ -251,12 +272,24 @@ function KeyEditPanel(props) {
 							required
 							// fullWidth
 							label="Node"
-							value={useNode}
-							onChange={(e) => setUseNode(e.target.value)}
-							InputLabelProps={{ shrink: !!useNode }}
+							value={editData.node}
+							onChange={(e) => setEditData({...editData, node: e.target.value})}
+							InputLabelProps={{ shrink: !!editData.node }}
 							helperText="Or input a node"
 						/>
 					</div>
+
+					<div style="margin: 1rem;">
+						<TextField
+							required
+							multiline
+							label="Note"
+							value={editData.note}
+							onChange={(e) => setEditData({...editData, note: e.target.value})}
+							helperText="註解"
+						/>
+					</div>
+
 					<hr />
 
 					{/* TODO: or from file */}
@@ -265,8 +298,8 @@ function KeyEditPanel(props) {
 							required
 							fullWidth
 							label="Master Key (base64)"
-							value={masterKey}
-							onChange={(e) => setMasterKey(e.target.value)}
+							value={editData.masterKey}
+							onChange={(e) => setEditData({...editData, masterKey: e.target.value})}
 						/>
 					</div>
 					<div style="margin: 2rem;">
