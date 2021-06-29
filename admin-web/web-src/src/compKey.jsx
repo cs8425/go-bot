@@ -8,7 +8,6 @@ import { fetchReq } from './api.js';
 import { makeStyles } from '@material-ui/core/styles';
 
 import Tooltip from '@material-ui/core/Tooltip';
-import Popover from '@material-ui/core/Popover';
 
 import Box from '@material-ui/core/Box';
 import Fab from '@material-ui/core/Fab';
@@ -25,14 +24,11 @@ import FolderOpenIcon from '@material-ui/icons/FolderOpen';
 import Card from '@material-ui/core/Card';
 import CardHeader from '@material-ui/core/CardHeader';
 
-import { AlertDialog } from './comp.jsx';
+import { AlertDialog, PopoverDialog } from './comp.jsx';
 import { DragNdrop } from './dragzone.jsx';
 
 const useStyles = makeStyles((theme) => ({
 	addBtn: {
-		margin: theme.spacing(2),
-	},
-	popover: {
 		margin: theme.spacing(2),
 	},
 	center: {
@@ -67,17 +63,12 @@ function PanelListKeys(props) {
 			val: val,
 		});
 	};
-	const handleClose = () => {
-		setAnchorEl(null);
-	};
 	const handleStop = () => {
 		console.log('[rm]', anchorEl.val);
 		const val = anchorEl.val;
 		const param = stopParamFn(val);
 		fetchReq(param.url, param.param, (d) => {
 			console.log('[rm][stop]', d);
-			setAnchorEl(null);
-			// srvStore.set(d);
 			setMasterKeys(d);
 		}, (err) => {
 			console.log('[rm][stop]err', err);
@@ -94,8 +85,7 @@ function PanelListKeys(props) {
 		let pull = () => {
 			// console.log('[pull][key]', intv);
 			pullFn()?.then((d) => {
-				console.log('[pull][key]', d);
-				// srvStore.set(d);
+				// console.log('[pull][key]', d);
 				setMasterKeys(d);
 			});
 			t = setTimeout(pull, intv);
@@ -109,27 +99,13 @@ function PanelListKeys(props) {
 
 	return (
 		<div>
-			<Popover
-				open={anchorEl !== null}
-				onClose={handleClose}
-				anchorEl={anchorEl?.el}
-				anchorOrigin={{
-					vertical: 'top',
-					horizontal: 'left',
-				}}
-				transformOrigin={{
-					vertical: 'top',
-					horizontal: 'left',
-				}}
+			<PopoverDialog
+				data={anchorEl}
+				setData={setAnchorEl}
+				onConfirm={handleStop}
 			>
-				<Box className={classes.popover}>
-					<p>確定要移除嗎?</p>
-					<ButtonGroup disableElevation variant="contained">
-						<Button className={classes.noUppercase} onClick={handleClose}>Cancel</Button>
-						<Button className={classes.noUppercase} onClick={handleStop} color="secondary" >Remove</Button>
-					</ButtonGroup>
-				</Box>
-			</Popover>
+				<p>確定要移除嗎?</p>
+			</PopoverDialog>
 
 			{masterKeys.map((v, i) => {
 				return (
@@ -179,6 +155,7 @@ function KeyPanel(props) {
 	const [masterKey, setMasterKey] = useState(null);
 
 	const [dialogData, setDialog] = useState(null);
+	const [popover, setPopover] = useState(null);
 
 	// add req
 	const handleAdd = (e) => {
@@ -257,6 +234,7 @@ function KeyPanel(props) {
 				let last = rets.pop();
 				// TODO: error handle
 				last.value.json().then(function (d) {
+					if (d.sort) d.sort();
 					setMasterKeys(d);
 				});
 			});
@@ -265,6 +243,11 @@ function KeyPanel(props) {
 	};
 
 	const handleClearBtn = (e) => {
+		setPopover({
+			el: e.currentTarget,
+		});
+	}
+	const handleClear = (e) => {
 		fetchReq('./api/key/?op=clr', {
 			method: 'POST',
 		}, (d) => {
@@ -305,6 +288,14 @@ function KeyPanel(props) {
 						masterKeys={masterKeys}
 						setMasterKeys={setMasterKeys}
 					></PanelListKeys>
+
+					<PopoverDialog
+						data={popover}
+						setData={setPopover}
+						onConfirm={handleClear}
+					>
+						<p>確定要全部移除嗎?</p>
+					</PopoverDialog>
 				</DragNdrop>
 			}
 			{isAddMode &&

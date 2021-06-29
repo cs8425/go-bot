@@ -1,6 +1,8 @@
 import { h, Fragment } from 'preact';
 import { useState, useEffect, useContext } from 'preact/hooks';
 
+import { makeStyles } from '@material-ui/core/styles';
+
 import Table from '@material-ui/core/Table';
 import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
@@ -97,6 +99,64 @@ import Box from '@material-ui/core/Box';
 import Fab from '@material-ui/core/Fab';
 import ButtonGroup from '@material-ui/core/ButtonGroup';
 
+const useStyles = makeStyles((theme) => ({
+	popover: {
+		margin: theme.spacing(2),
+	},
+	noUppercase: {
+		textTransform: 'unset',
+	},
+}));
+
+function PopoverDialog(props) {
+	const { children, data, setData, onConfirm, onClose, ...other } = props;
+	const classes = useStyles();
+	const handleClose = () => {
+		if (typeof onClose === 'function') {
+			let ret = onClose(e);
+			if (ret != false) setData(null);
+			return;
+		}
+		setData(null);
+	};
+	const handleConfirm = (e) => {
+		if (typeof onConfirm === 'function') {
+			let ret = onConfirm(e);
+			if (ret != false) setData(null);
+			return;
+		}
+		setData(null);
+	}
+
+	return (
+		<Popover
+			open={data !== null}
+			onClose={handleClose}
+			anchorEl={data?.el}
+			anchorOrigin={{
+				vertical: 'top',
+				horizontal: 'left',
+			}}
+			transformOrigin={{
+				vertical: 'top',
+				horizontal: 'left',
+			}}
+			{...other}
+		>
+			<Box className={classes.popover}>
+				{children}
+				<ButtonGroup disableElevation variant="contained">
+					<Button className={classes.noUppercase} onClick={handleClose}>Cancel</Button>
+					<Button className={classes.noUppercase} onClick={handleConfirm} color="secondary" >Remove</Button>
+				</ButtonGroup>
+			</Box>
+		</Popover>
+	);
+}
+
+export { PopoverDialog };
+
+
 import AddIcon from '@material-ui/icons/Add';
 
 import { fetchReq } from './api.js';
@@ -104,27 +164,23 @@ import { fetchReq } from './api.js';
 function PanelListMode(props) {
 	const { children, useStyles, handleAddBtn, stopParamFn, ksParamFn, pullFn, dataStore, header, renderRowFn, ...other } = props;
 	const classes = useStyles();
-	const [anchorEl, setAnchorEl] = useState(null);
+	const [popover, setPopover] = useState(null);
 	const srvStore = useContext(dataStore);
 
 	// popover for stop
 	const handleClick = (ev, val) => {
-		console.log('[anchorEl]', ev, val);
-		setAnchorEl({
+		console.log('[popover]', ev, val);
+		setPopover({
 			el: ev.currentTarget,
 			val: val,
 		});
 	};
-	const handleClose = () => {
-		setAnchorEl(null);
-	};
 	const handleStop = () => {
-		console.log('[stop]', anchorEl.val);
-		const val = anchorEl.val;
+		console.log('[stop]', popover.val);
+		const val = popover.val;
 		const param = stopParamFn(val);
 		fetchReq(param.url, param.param, (d) => {
 			console.log('[rev][stop]', d);
-			setAnchorEl(null);
 			srvStore.set(d);
 		}, (err) => {
 			console.log('[rev][stop]err', err);
@@ -178,27 +234,14 @@ function PanelListMode(props) {
 
 	return (
 		<div>
-			<Popover
-				open={anchorEl !== null}
-				onClose={handleClose}
-				anchorEl={anchorEl?.el}
-				anchorOrigin={{
-					vertical: 'top',
-					horizontal: 'left',
-				}}
-				transformOrigin={{
-					vertical: 'top',
-					horizontal: 'left',
-				}}
+			<PopoverDialog
+				data={popover}
+				setData={setPopover}
+				// onClose={handleClose}
+				onConfirm={handleStop}
 			>
-				<Box className={classes.popover}>
-					<p>確定要停止嗎?</p>
-					<ButtonGroup disableElevation variant="contained">
-						<Button className={classes.noUppercase} onClick={handleClose}>Cancel</Button>
-						<Button className={classes.noUppercase} onClick={handleStop} color="secondary" >Stop</Button>
-					</ButtonGroup>
-				</Box>
-			</Popover>
+				<p>確定要停止嗎?</p>
+			</PopoverDialog>
 
 			<Tooltip title="Add" aria-label="add">
 				<Fab color="primary" className={classes.addBtn} onClick={handleAddBtn}>
