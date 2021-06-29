@@ -218,17 +218,16 @@ function KeyPanel(props) {
 			const json = JSON.parse(e.target.result);
 			// console.log(e, json);
 			let reqs = [];
-			const keys = json?.keys;
-			for (let k in keys) {
+			json?.keys?.forEach((v, i) => {
 				let param = {
-					uuid: k,
-					key: keys[k],
+					uuid: v.tag,
+					key: v.key,
 				};
 				reqs.push(fetch('./api/key/?op=set', {
 					body: JSON.stringify(param),
 					method: 'POST',
 				}));
-			}
+			});
 
 			reqs.length && Promise.allSettled(reqs).then((rets) => {
 				// {status: "fulfilled", value: [...]}
