@@ -38,7 +38,7 @@ type WebAPI struct {
 	revNextID uint32       // atomic add
 	revInfo   []*revSrv    // atomic.Value
 
-	keys map[string][]byte // master keys for bots
+	keys *KeyStore // master keys for bots
 }
 
 func NewWebAPI(admin *base.Auth) *WebAPI {
@@ -49,7 +49,7 @@ func NewWebAPI(admin *base.Auth) *WebAPI {
 		revNextID: 1,
 		revInfo:   make([]*revSrv, 0),
 
-		keys: make(map[string][]byte),
+		keys: NewKeyStore(),
 	}
 	// TODO: worker
 	return api
@@ -136,9 +136,11 @@ func (api *WebAPI) Local(w http.ResponseWriter, r *http.Request) {
 		}
 		masterKey := api.getMasterKey(srv.ID)
 		if err := srv.Init(masterKey); err != nil {
+			api.keys.clear(masterKey)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		api.keys.clear(masterKey)
 		go srv.Start()
 		api.mx.Lock()
 		api.srvInfo = append(api.srvInfo, srv)
@@ -261,6 +263,7 @@ func (api *WebAPI) Reverse(w http.ResponseWriter, r *http.Request) {
 
 		masterKey := api.getMasterKey(srv.ID)
 		p1, err := api.adm.GetConn2ClientWithKey(srv.ID, base.B_bind, masterKey)
+		api.keys.clear(masterKey) // clear
 		if err != nil {
 			vlog.Vln(2, "[rev]init err", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -397,7 +400,7 @@ func (api *WebAPI) Keys(w http.ResponseWriter, r *http.Request) {
 		}
 		vlog.Vln(3, "[keys][set]", uuid)
 		api.mx.Lock()
-		api.keys[uuid] = key
+		api.keys.Set(uuid, key)
 		api.mx.Unlock()
 		goto RETOK
 	case "rm":
@@ -407,8 +410,12 @@ func (api *WebAPI) Keys(w http.ResponseWriter, r *http.Request) {
 		}
 		vlog.Vln(3, "[keys][rm]", uuid)
 		api.mx.Lock()
-		delete(api.keys, uuid)
+		api.keys.Del(uuid)
 		api.mx.Unlock()
+		goto RETOK
+	case "clr":
+		api.keys.Clear()
+		vlog.Vln(3, "[keys][clr]")
 		goto RETOK
 
 	default:
@@ -419,11 +426,7 @@ RETOK:
 	{
 		api.mx.RLock()
 		defer api.mx.RUnlock()
-		list := make([]string, 0, len(api.keys))
-		for uuid, _ := range api.keys {
-			list = append(list, uuid)
-		}
-		JsonRes(w, list)
+		JsonRes(w, api.keys.Keys())
 	}
 	return
 ERR400:
@@ -449,7 +452,7 @@ func (api *WebAPI) getMasterKey(uuid string) []byte {
 	api.mx.RLock()
 	defer api.mx.RUnlock()
 	tags := strings.SplitN(uuid, "/", 2)
-	masterKey, ok := api.keys[tags[0]]
+	masterKey, ok := api.keys.Get(tags[0])
 	if !ok && api.adm.MasterKey != nil {
 		masterKey = api.adm.MasterKey
 	}
