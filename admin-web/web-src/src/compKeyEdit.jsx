@@ -5,7 +5,7 @@ import { useState, useRef, useContext } from 'preact/hooks';
 import { NodeStore } from './store.js';
 import { dumpJson } from './api.js';
 
-import { makeStyles, withStyles } from '@material-ui/core/styles';
+import { makeStyles } from '@material-ui/core/styles';
 
 import Box from '@material-ui/core/Box';
 import Fab from '@material-ui/core/Fab';
@@ -18,7 +18,8 @@ import Tooltip from '@material-ui/core/Tooltip';
 import Typography from '@material-ui/core/Typography';
 
 import AddIcon from '@material-ui/icons/Add';
-import ClearIcon from '@material-ui/icons/Clear';
+import AddCircleIcon from '@material-ui/icons/AddCircle';
+import CancelIcon from '@material-ui/icons/Cancel';
 import DeleteIcon from '@material-ui/icons/Delete';
 import DeleteSweepIcon from '@material-ui/icons/DeleteSweep';
 import EditIcon from '@material-ui/icons/Edit';
@@ -30,16 +31,6 @@ import CardHeader from '@material-ui/core/CardHeader';
 
 import { AlertDialog, PopoverDialog } from './comp.jsx';
 import { DragNdrop } from './dragzone.jsx';
-
-const InfoButton = withStyles((theme) => ({
-	root: {
-		color: theme.palette.getContrastText(theme.palette.info.main),
-		backgroundColor: theme.palette.info.main,
-		'&:hover': {
-			backgroundColor: theme.palette.info.dark,
-		},
-	},
-}))(Button);
 
 const useStyles = makeStyles((theme) => ({
 	addBtn: {
@@ -68,50 +59,13 @@ const useStyles = makeStyles((theme) => ({
 function PanelListKeys(props) {
 	const { children, masterKeys, onRemove, onEdit, ...other } = props;
 	const classes = useStyles();
-	const [popover, setPopover] = useState(null);
 
-	// popover for stop
 	const handleClick = (ev, val, i) => {
 		if (typeof onEdit === 'function') return onEdit(ev, val, i);
-		// setPopover({
-		// 	el: ev.currentTarget,
-		// 	val: val,
-		// 	idx: i,
-		// });
 	};
-	const handleEdit = (e) => {
-		const val = popover.val;
-		// console.log('[key][edit]', val);
-		if (typeof onEdit === 'function') {
-			let ret = onEdit(val, val.idx);
-			if (ret === false) return;
-		}
-		setPopover(null);
-	}
-	const handleRemove = (e) => {
-		const val = popover.val;
-		// console.log('[key][rm]', val);
-		if (typeof onRemove === 'function') {
-			let ret = onRemove(val, val.idx);
-			if (ret === false) return;
-		}
-		setPopover(null);
-	}
 
 	return (
-		<div>
-			<PopoverDialog
-				data={popover}
-				setData={setPopover}
-				footer={
-					<ButtonGroup variant="contained">
-						<InfoButton onClick={handleEdit} color="primary" startIcon={<EditIcon />}>修改</InfoButton>
-						<Button onClick={() => setPopover(null)} startIcon={<ClearIcon />}>取消</Button>
-						<Button onClick={handleRemove} color="secondary" startIcon={<DeleteIcon />}>刪除</Button>
-					</ButtonGroup>
-				}
-			/>
-
+		<>
 			{masterKeys.map((v, i) => {
 				return (
 					<Card className={classes.card} variant="outlined">
@@ -134,8 +88,7 @@ function PanelListKeys(props) {
 						/>
 					</Card>);
 			})}
-
-		</div>
+		</>
 	);
 }
 
@@ -221,15 +174,15 @@ function KeyEdit(props) {
 			<div style="margin: 2rem;">
 				{isNew &&
 					<ButtonGroup disableElevation variant="contained" fullWidth="true">
-						<Button className={classes.noUppercase} onClick={handleFn(onCancel)}>Cancel</Button>
-						<Button className={classes.noUppercase} onClick={handleFn(onAdd)} color="primary" >Add</Button>
+						<Button className={classes.noUppercase} onClick={handleFn(onCancel)}><CancelIcon />Cancel</Button>
+						<Button className={classes.noUppercase} onClick={handleFn(onAdd)} color="primary" ><AddCircleIcon />Add</Button>
 					</ButtonGroup>
 				}
 				{!isNew &&
 					<ButtonGroup disableElevation variant="contained" fullWidth="true">
-						<Button className={classes.noUppercase} onClick={handleFn(onCancel)}>Cancel</Button>
-						<Button className={classes.noUppercase} onClick={handleFn(onSave)} color="primary" >Save</Button>
-						<Button className={classes.noUppercase} onClick={handleRemove} color="secondary" >Remove</Button>
+						<Button className={classes.noUppercase} onClick={handleFn(onCancel)}><CancelIcon />Cancel</Button>
+						<Button className={classes.noUppercase} onClick={handleFn(onSave)} color="primary" ><SaveIcon />Save</Button>
+						<Button className={classes.noUppercase} onClick={handleRemove} color="secondary" ><DeleteIcon />Remove</Button>
 					</ButtonGroup>
 				}
 			</div>
@@ -306,7 +259,7 @@ function KeyEditPanel(props) {
 	}
 
 	const handleEditMode = (e, v, i) => {
-		console.log('[key][edit]', e, v, i);
+		// console.log('[key][edit]', e, v, i);
 		setEditData({
 			node: v.tag,
 			key: v.key,
@@ -325,7 +278,7 @@ function KeyEditPanel(props) {
 		let reader = new FileReader();
 		reader.onload = (e) => {
 			const json = JSON.parse(e.target.result);
-			console.log(e, json);
+			// console.log(e, json);
 
 			setMasterKeys(json?.keys);
 		}

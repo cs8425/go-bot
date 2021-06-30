@@ -18,6 +18,8 @@ import TextField from '@material-ui/core/TextField';
 import MenuItem from '@material-ui/core/MenuItem';
 
 import AddIcon from '@material-ui/icons/Add';
+import AddCircleIcon from '@material-ui/icons/AddCircle';
+import CancelIcon from '@material-ui/icons/Cancel';
 import ClearIcon from '@material-ui/icons/Clear';
 import DeleteSweepIcon from '@material-ui/icons/DeleteSweep';
 import FolderOpenIcon from '@material-ui/icons/FolderOpen';
@@ -332,8 +334,8 @@ function KeyPanel(props) {
 					</div>
 					<div style="margin: 2rem;">
 						<ButtonGroup disableElevation variant="contained" fullWidth="true">
-							<Button className={classes.noUppercase} onClick={handleCancel}>Cancel</Button>
-							<Button className={classes.noUppercase} onClick={handleAdd} color="primary" >Add</Button>
+							<Button className={classes.noUppercase} onClick={handleCancel}><CancelIcon />Cancel</Button>
+							<Button className={classes.noUppercase} onClick={handleAdd} color="primary" ><AddCircleIcon />Add</Button>
 						</ButtonGroup>
 					</div>
 				</Box>

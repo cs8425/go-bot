@@ -3,6 +3,10 @@ import { useState, useEffect, useContext } from 'preact/hooks';
 
 import { makeStyles } from '@material-ui/core/styles';
 
+import AddIcon from '@material-ui/icons/Add';
+import CancelIcon from '@material-ui/icons/Cancel';
+import DeleteIcon from '@material-ui/icons/Delete';
+
 import Table from '@material-ui/core/Table';
 import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
@@ -148,8 +152,8 @@ function PopoverDialog(props) {
 				{children}
 				{!footer &&
 					<ButtonGroup disableElevation variant="contained">
-						<Button className={classes.noUppercase} onClick={handleClose}>Cancel</Button>
-						<Button className={classes.noUppercase} onClick={handleConfirm} color="secondary" >Remove</Button>
+						<Button className={classes.noUppercase} onClick={handleClose}><CancelIcon />Cancel</Button>
+						<Button className={classes.noUppercase} onClick={handleConfirm} color="secondary" ><DeleteIcon />Remove</Button>
 					</ButtonGroup>
 				}
 				{footer}
@@ -159,9 +163,6 @@ function PopoverDialog(props) {
 }
 
 export { PopoverDialog };
-
-
-import AddIcon from '@material-ui/icons/Add';
 
 import { fetchReq } from './api.js';
 
