@@ -61,7 +61,7 @@ import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogTitle from '@material-ui/core/DialogTitle';
 
 function AlertDialog(props) {
-	const { children, data, setDialog, ...other } = props;
+	const { children, data, setDialog, footer, ...other } = props;
 	const handleClose = () => {
 		setDialog(null);
 	};
@@ -71,19 +71,20 @@ function AlertDialog(props) {
 			<Dialog
 				open={data !== null}
 				onClose={handleClose}
-				aria-labelledby="alert-dialog-title"
-				aria-describedby="alert-dialog-description"
 			>
 				{data?.title &&
-					<DialogTitle id="alert-dialog-title">{data?.title}</DialogTitle>
+					<DialogTitle>{data?.title}</DialogTitle>
 				}
-				{data?.msg &&
-					<DialogContent>
-						<DialogContentText id="alert-dialog-description">{children || data?.msg}</DialogContentText>
+				{(children || data?.msg) &&
+					<DialogContent dividers>
+						<DialogContentText>{children || data?.msg}</DialogContentText>
 					</DialogContent>
 				}
 				<DialogActions>
-					<Button onClick={handleClose} color="primary" autoFocus>OK</Button>
+					{!footer &&
+						<Button onClick={handleClose} color="primary" autoFocus>OK</Button>
+					}
+					{footer}
 				</DialogActions>
 			</Dialog>
 		</div>

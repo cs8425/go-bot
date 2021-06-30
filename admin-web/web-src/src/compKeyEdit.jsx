@@ -7,8 +7,6 @@ import { dumpJson } from './api.js';
 
 import { makeStyles, withStyles } from '@material-ui/core/styles';
 
-import Tooltip from '@material-ui/core/Tooltip';
-
 import Box from '@material-ui/core/Box';
 import Fab from '@material-ui/core/Fab';
 import Button from '@material-ui/core/Button';
@@ -16,6 +14,8 @@ import ButtonGroup from '@material-ui/core/ButtonGroup';
 
 import TextField from '@material-ui/core/TextField';
 import MenuItem from '@material-ui/core/MenuItem';
+import Tooltip from '@material-ui/core/Tooltip';
+import Typography from '@material-ui/core/Typography';
 
 import AddIcon from '@material-ui/icons/Add';
 import ClearIcon from '@material-ui/icons/Clear';
@@ -59,6 +59,9 @@ const useStyles = makeStyles((theme) => ({
 	},
 	cardContent: {
 		'overflow-wrap': 'anywhere',
+	},
+	text: {
+		color: theme.palette.text.primary,
 	},
 }));
 
@@ -119,7 +122,7 @@ function PanelListKeys(props) {
 							content: classes.cardContent,
 						}}
 							avatar={
-								<Tooltip title="Option" aria-label="option">
+								<Tooltip title="Edit" aria-label="edit">
 									<Fab size="small" color="secondary" onClick={(e) => handleClick(e, v, i)}>
 										<EditIcon />
 									</Fab>
@@ -140,13 +143,31 @@ function KeyEdit(props) {
 	const { children, editData, setEditData, isNew, onCancel, onAdd, onSave, onRemove, ...other } = props;
 	const classes = useStyles();
 	const store = useContext(NodeStore);
+	const [dialogData, setDialog] = useState(null);
 
 	const handleFn = (fn) => (e) => {
 		if (typeof fn === 'function') fn(e, editData);
 	}
+	const handleRemove = (e) => {
+		setDialog({
+			msg: (
+				<Typography variant="h6" className={classes.text} >確定要刪除?</Typography>
+			),
+		});
+	}
 
 	return (
 		<Box className={classes.center}>
+			<AlertDialog
+				data={dialogData}
+				setDialog={setDialog}
+				footer={
+					<>
+						<Button className={classes.noUppercase} onClick={() => setDialog(null)} color="primary">Cancel</Button>
+						<Button className={classes.noUppercase} onClick={handleFn(onRemove)} color="secondary">Remove</Button>
+					</>
+				}
+			/>
 			<div style="margin: 1rem;">
 				<TextField
 					required
@@ -154,14 +175,13 @@ function KeyEdit(props) {
 					label="Node"
 					value={editData.node || ''}
 					onChange={(e) => setEditData({ ...editData, node: e.target.value })}
-					helperText="Please select a using node"
+					helperText="Please select a node"
 				>
 					<MenuItem value={''}>---</MenuItem>
-					{store.map((option) => (
-						<MenuItem key={option.tag} value={option.tag}>
-							{option.tag}
-						</MenuItem>
-					))}
+					{store.map((option) => {
+						const tag = option.tag.split('/')[0];
+						return (<MenuItem key={tag} value={tag}>{tag}</MenuItem>);
+					})}
 				</TextField>
 			</div>
 			<div style="margin: 1rem;">
@@ -194,8 +214,8 @@ function KeyEdit(props) {
 					required
 					fullWidth
 					label="Master Key (base64)"
-					value={editData.masterKey}
-					onChange={(e) => setEditData({ ...editData, masterKey: e.target.value })}
+					value={editData.key}
+					onChange={(e) => setEditData({ ...editData, key: e.target.value })}
 				/>
 			</div>
 			<div style="margin: 2rem;">
@@ -209,7 +229,7 @@ function KeyEdit(props) {
 					<ButtonGroup disableElevation variant="contained" fullWidth="true">
 						<Button className={classes.noUppercase} onClick={handleFn(onCancel)}>Cancel</Button>
 						<Button className={classes.noUppercase} onClick={handleFn(onSave)} color="primary" >Save</Button>
-						<Button className={classes.noUppercase} onClick={handleFn(onRemove)} color="secondary" >Remove</Button>
+						<Button className={classes.noUppercase} onClick={handleRemove} color="secondary" >Remove</Button>
 					</ButtonGroup>
 				}
 			</div>
@@ -242,7 +262,7 @@ function KeyEditPanel(props) {
 			});
 			return;
 		}
-		if (!v?.masterKey) {
+		if (!v?.key) {
 			setDialog({
 				title: '請填入key!!',
 			});
@@ -254,33 +274,30 @@ function KeyEditPanel(props) {
 		if (!verify(v)) return;
 		let param = {
 			tag: v?.node?.split('/')[0],
-			key: v?.masterKey,
+			key: v?.key,
 			note: v?.note,
 		};
-		console.log('[key][add]', editData, v, param);
+		// console.log('[key][add]', editData, v, param);
 
 		let list = [...masterKeys, param];
 		setMasterKeys(list);
 		handleCancel();
 	}
 	const handleRemove = (e, v) => {
-		console.log('[key][rm]', v);
-		// const tag = v?.node?.split('/')[0];
-		// let list = masterKeys.filter(s => s.tag !== tag);
 		let list = masterKeys.filter((s, i) => i !== v.idx); // by index
 		setMasterKeys(list);
-		console.log('[key][rm]2', list, masterKeys);
+		// console.log('[key][rm]', v, list, masterKeys);
 		handleCancel();
 	}
 	const handleEditSave = (e, v) => {
-		console.log('[key][save]', v);
+		// console.log('[key][save]', v);
 		if (!verify(v)) return;
 		const tag = v?.node?.split('/')[0];
 		let item = masterKeys[v.idx]; // by index
 		if (!item) return;
 		Object.assign(item, {
 			tag,
-			key: v.masterKey,
+			key: v.key,
 			note: v.note,
 		});
 		setMasterKeys([...masterKeys]);
@@ -292,7 +309,7 @@ function KeyEditPanel(props) {
 		console.log('[key][edit]', e, v, i);
 		setEditData({
 			node: v.tag,
-			masterKey: v.key,
+			key: v.key,
 			note: v.note,
 			idx: i,
 		});
