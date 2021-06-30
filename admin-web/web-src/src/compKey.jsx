@@ -1,25 +1,16 @@
 // TODO: move some common part to comp.jsx
 import { h, Fragment } from 'preact';
-import { useState, useEffect, useRef, useContext } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 
-import { NodeStore, KeyStore } from './store.js';
 import { fetchReq } from './api.js';
 
 import { makeStyles } from '@material-ui/core/styles';
 
 import Tooltip from '@material-ui/core/Tooltip';
 
-import Box from '@material-ui/core/Box';
 import Fab from '@material-ui/core/Fab';
-import Button from '@material-ui/core/Button';
-import ButtonGroup from '@material-ui/core/ButtonGroup';
-
-import TextField from '@material-ui/core/TextField';
-import MenuItem from '@material-ui/core/MenuItem';
 
 import AddIcon from '@material-ui/icons/Add';
-import AddCircleIcon from '@material-ui/icons/AddCircle';
-import CancelIcon from '@material-ui/icons/Cancel';
 import ClearIcon from '@material-ui/icons/Clear';
 import DeleteSweepIcon from '@material-ui/icons/DeleteSweep';
 import FolderOpenIcon from '@material-ui/icons/FolderOpen';
@@ -29,6 +20,7 @@ import CardHeader from '@material-ui/core/CardHeader';
 
 import { AlertDialog, PopoverDialog } from './comp.jsx';
 import { DragNdrop } from './dragzone.jsx';
+import { KeyEdit } from './compUI.jsx';
 
 const useStyles = makeStyles((theme) => ({
 	addBtn: {
@@ -52,7 +44,7 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 function PanelListKeys(props) {
-	const { children, useStyles, stopParamFn, pullFn, dataStore, masterKeys, setMasterKeys, ...other } = props;
+	const { children, useStyles, stopParamFn, pullFn, masterKeys, setMasterKeys, ...other } = props;
 	const classes = useStyles();
 	const [anchorEl, setAnchorEl] = useState(null);
 
@@ -144,35 +136,40 @@ function PanelListKeys(props) {
 function KeyPanel(props) {
 	const classes = useStyles();
 	const { children, ...other } = props;
-	const store = useContext(NodeStore);
 	const [isAddMode, setAddMode] = useState(false);
 
 	const fileRef = useRef();
 	const [masterKeys, setMasterKeys] = useState([]);
-
-	// TODO: merge to one State
-	const [useNode, setUseNode] = useState(null);
-	const [masterKey, setMasterKey] = useState(null);
+	const [editData, setEditData] = useState({});
 
 	const [dialogData, setDialog] = useState(null);
 	const [popover, setPopover] = useState(null);
 
 	// add req & cancel
 	const handleCancel = () => {
-		setMasterKey('');
+		setEditData({});
 		setAddMode(false);
 	}
-	const handleAdd = (e) => {
-		if (!useNode) {
-			// alert
+	const verify = (v) => {
+		if (!v?.node) {
 			setDialog({
-				title: '請選擇節點!!',
+				title: '請填入節點!!',
 			});
 			return;
 		}
+		if (!v?.key) {
+			setDialog({
+				title: '請填入key!!',
+			});
+			return;
+		}
+		return true;
+	}
+	const handleAdd = (e, v) => {
+		if (!verify(v)) return;
 		let param = {
-			uuid: useNode?.split('/')[0],
-			key: masterKey,
+			uuid: v?.node?.split('/')[0],
+			key: v?.key,
 		};
 		console.log('[key][add]', param.uuid);
 		fetchReq('./api/key/?op=set', {
@@ -287,7 +284,6 @@ function KeyPanel(props) {
 						useStyles={useStyles}
 						stopParamFn={stopParamFn}
 						pullFn={pullFn}
-						dataStore={KeyStore}
 						masterKeys={masterKeys}
 						setMasterKeys={setMasterKeys}
 					></PanelListKeys>
@@ -302,43 +298,13 @@ function KeyPanel(props) {
 				</DragNdrop>
 			}
 			{isAddMode &&
-				<Box className={classes.center}>
-					<div style="margin: 1rem;">
-						{/* TODO: or from text input */}
-						<TextField
-							required
-							select
-							label="Node"
-							value={useNode}
-							onChange={(e) => setUseNode(e.target.value)}
-							helperText="Please select a using node"
-						>
-							<MenuItem value={null}>---</MenuItem>
-							{store.map((option) => (
-								<MenuItem key={option.tag} value={option.tag}>
-									{option.tag}
-								</MenuItem>
-							))}
-						</TextField>
-					</div>
-
-					{/* TODO: or from file */}
-					<div style="margin: 1rem;">
-						<TextField
-							required
-							fullWidth
-							label="Master Key (base64)"
-							value={masterKey}
-							onChange={(e) => setMasterKey(e.target.value)}
-						/>
-					</div>
-					<div style="margin: 2rem;">
-						<ButtonGroup disableElevation variant="contained" fullWidth="true">
-							<Button className={classes.noUppercase} onClick={handleCancel}><CancelIcon />Cancel</Button>
-							<Button className={classes.noUppercase} onClick={handleAdd} color="primary" ><AddCircleIcon />Add</Button>
-						</ButtonGroup>
-					</div>
-				</Box>
+				<KeyEdit
+					isNew={true}
+					editData={editData}
+					setEditData={setEditData}
+					onCancel={handleCancel}
+					onAdd={handleAdd}
+				/>
 			}
 		</div>
 	);
