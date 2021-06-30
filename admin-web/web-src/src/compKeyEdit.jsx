@@ -1,9 +1,9 @@
 // TODO: move some common part to comp.jsx
 import { h, Fragment } from 'preact';
-import { useState, useEffect, useRef, useContext } from 'preact/hooks';
+import { useState, useRef, useContext } from 'preact/hooks';
 
 import { NodeStore } from './store.js';
-import { fetchReq, dumpJson } from './api.js';
+import { dumpJson } from './api.js';
 
 import { makeStyles, withStyles } from '@material-ui/core/styles';
 
@@ -63,35 +63,36 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 function PanelListKeys(props) {
-	const { children, useStyles, masterKeys, onRemove, ...other } = props;
+	const { children, masterKeys, onRemove, onEdit, ...other } = props;
 	const classes = useStyles();
 	const [popover, setPopover] = useState(null);
 
 	// popover for stop
-	const handleClick = (ev, val) => {
-		setPopover({
-			el: ev.currentTarget,
-			val: val,
-		});
+	const handleClick = (ev, val, i) => {
+		if (typeof onEdit === 'function') return onEdit(ev, val, i);
+		// setPopover({
+		// 	el: ev.currentTarget,
+		// 	val: val,
+		// 	idx: i,
+		// });
 	};
-	const handleStop = () => {
-		const val = popover.val;
-		const err = onRemove(val);
-		if (err) {
-			console.log('[key][rm]err', err);
-			setDialog({
-				title: 'Error',
-				msg: err,
-			});
-		}
-	}
 	const handleEdit = (e) => {
 		const val = popover.val;
-		console.log('[key][edit]', val);
+		// console.log('[key][edit]', val);
+		if (typeof onEdit === 'function') {
+			let ret = onEdit(val, val.idx);
+			if (ret === false) return;
+		}
+		setPopover(null);
 	}
 	const handleRemove = (e) => {
 		const val = popover.val;
-		console.log('[key][rm]', val);
+		// console.log('[key][rm]', val);
+		if (typeof onRemove === 'function') {
+			let ret = onRemove(val, val.idx);
+			if (ret === false) return;
+		}
+		setPopover(null);
 	}
 
 	return (
@@ -119,7 +120,7 @@ function PanelListKeys(props) {
 						}}
 							avatar={
 								<Tooltip title="Option" aria-label="option">
-									<Fab size="small" color="secondary" onClick={(e) => handleClick(e, v)}>
+									<Fab size="small" color="secondary" onClick={(e) => handleClick(e, v, i)}>
 										<EditIcon />
 									</Fab>
 								</Tooltip>
@@ -135,12 +136,91 @@ function PanelListKeys(props) {
 	);
 }
 
+function KeyEdit(props) {
+	const { children, editData, setEditData, isNew, onCancel, onAdd, onSave, onRemove, ...other } = props;
+	const classes = useStyles();
+	const store = useContext(NodeStore);
+
+	const handleFn = (fn) => (e) => {
+		if (typeof fn === 'function') fn(e, editData);
+	}
+
+	return (
+		<Box className={classes.center}>
+			<div style="margin: 1rem;">
+				<TextField
+					required
+					select
+					label="Node"
+					value={editData.node || ''}
+					onChange={(e) => setEditData({ ...editData, node: e.target.value })}
+					helperText="Please select a using node"
+				>
+					<MenuItem value={''}>---</MenuItem>
+					{store.map((option) => (
+						<MenuItem key={option.tag} value={option.tag}>
+							{option.tag}
+						</MenuItem>
+					))}
+				</TextField>
+			</div>
+			<div style="margin: 1rem;">
+				<TextField
+					required
+					// fullWidth
+					label="Node"
+					value={editData.node}
+					onChange={(e) => setEditData({ ...editData, node: e.target.value })}
+					InputLabelProps={{ shrink: !!editData.node }}
+					helperText="Or input a node"
+				/>
+			</div>
+
+			<div style="margin: 1rem;">
+				<TextField
+					multiline
+					label="Note"
+					value={editData.note}
+					onChange={(e) => setEditData({ ...editData, note: e.target.value })}
+					helperText="註解"
+				/>
+			</div>
+
+			{/* <hr /> */}
+
+			{/* TODO: or from file */}
+			<div style="margin: 1rem;">
+				<TextField
+					required
+					fullWidth
+					label="Master Key (base64)"
+					value={editData.masterKey}
+					onChange={(e) => setEditData({ ...editData, masterKey: e.target.value })}
+				/>
+			</div>
+			<div style="margin: 2rem;">
+				{isNew &&
+					<ButtonGroup disableElevation variant="contained" fullWidth="true">
+						<Button className={classes.noUppercase} onClick={handleFn(onCancel)}>Cancel</Button>
+						<Button className={classes.noUppercase} onClick={handleFn(onAdd)} color="primary" >Add</Button>
+					</ButtonGroup>
+				}
+				{!isNew &&
+					<ButtonGroup disableElevation variant="contained" fullWidth="true">
+						<Button className={classes.noUppercase} onClick={handleFn(onCancel)}>Cancel</Button>
+						<Button className={classes.noUppercase} onClick={handleFn(onSave)} color="primary" >Save</Button>
+						<Button className={classes.noUppercase} onClick={handleFn(onRemove)} color="secondary" >Remove</Button>
+					</ButtonGroup>
+				}
+			</div>
+		</Box>
+	);
+}
 
 function KeyEditPanel(props) {
 	const classes = useStyles();
 	const { children, ...other } = props;
-	const store = useContext(NodeStore);
-	const [isAddMode, setAddMode] = useState(false);
+	const [editMode, setEditMode] = useState(0); // 0: list, 1: new, 2: edit
 
 	const fileRef = useRef();
 	const dummyDlEl = useRef(null);
@@ -153,27 +233,70 @@ function KeyEditPanel(props) {
 	// add req & cancel
 	const handleCancel = () => {
 		setEditData({});
-		setAddMode(false);
+		setEditMode(0);
 	}
-	const handleAdd = (e) => {
-		if (!editData?.node) {
-			// alert
+	const verify = (v) => {
+		if (!v?.node) {
 			setDialog({
-				title: '請選擇節點!!',
+				title: '請填入節點!!',
 			});
 			return;
 		}
+		if (!v?.masterKey) {
+			setDialog({
+				title: '請填入key!!',
+			});
+			return;
+		}
+		return true;
+	}
+	const handleAdd = (e, v) => {
+		if (!verify(v)) return;
 		let param = {
-			uuid: editData?.node?.split('/')[0],
-			key: editData?.masterKey,
-			note: editData?.note,
+			tag: v?.node?.split('/')[0],
+			key: v?.masterKey,
+			note: v?.note,
 		};
-		console.log('[key][add]', editData, param);
+		console.log('[key][add]', editData, v, param);
+
+		let list = [...masterKeys, param];
+		setMasterKeys(list);
+		handleCancel();
+	}
+	const handleRemove = (e, v) => {
+		console.log('[key][rm]', v);
+		// const tag = v?.node?.split('/')[0];
+		// let list = masterKeys.filter(s => s.tag !== tag);
+		let list = masterKeys.filter((s, i) => i !== v.idx); // by index
+		setMasterKeys(list);
+		console.log('[key][rm]2', list, masterKeys);
+		handleCancel();
+	}
+	const handleEditSave = (e, v) => {
+		console.log('[key][save]', v);
+		if (!verify(v)) return;
+		const tag = v?.node?.split('/')[0];
+		let item = masterKeys[v.idx]; // by index
+		if (!item) return;
+		Object.assign(item, {
+			tag,
+			key: v.masterKey,
+			note: v.note,
+		});
+		setMasterKeys([...masterKeys]);
 
 		handleCancel();
 	}
-	const handleRemove = (v) => {
-		console.log('[key][rm]', v);
+
+	const handleEditMode = (e, v, i) => {
+		console.log('[key][edit]', e, v, i);
+		setEditData({
+			node: v.tag,
+			masterKey: v.key,
+			note: v.note,
+			idx: i,
+		});
+		setEditMode(2);
 	}
 
 	const handleLoadBtn = (e) => {
@@ -209,7 +332,7 @@ function KeyEditPanel(props) {
 	return (
 		<div>
 			<AlertDialog data={dialogData} setDialog={setDialog}></AlertDialog>
-			{!isAddMode &&
+			{(editMode === 0) &&
 				<DragNdrop ref={fileRef} handleFile={handleFile} onClick={false}>
 					<Tooltip title="Load" aria-label="load">
 						<Fab color="primary" className={classes.addBtn} onClick={handleLoadBtn}>
@@ -223,7 +346,7 @@ function KeyEditPanel(props) {
 					</Tooltip>
 
 					<Tooltip title="Add" aria-label="add">
-						<Fab color="primary" className={classes.addBtn} onClick={() => setAddMode(true)}>
+						<Fab color="primary" className={classes.addBtn} onClick={() => setEditMode(1)}>
 							<AddIcon />
 						</Fab>
 					</Tooltip>
@@ -233,8 +356,8 @@ function KeyEditPanel(props) {
 						</Fab>
 					</Tooltip>
 					<PanelListKeys
-						useStyles={useStyles}
 						onRemove={handleRemove}
+						onEdit={handleEditMode}
 						masterKeys={masterKeys}
 						setMasterKeys={setMasterKeys}
 					></PanelListKeys>
@@ -248,67 +371,16 @@ function KeyEditPanel(props) {
 					</PopoverDialog>
 				</DragNdrop>
 			}
-			{isAddMode &&
-				<Box className={classes.center}>
-					<div style="margin: 1rem;">
-						<TextField
-							required
-							select
-							label="Node"
-							value={editData.node || ''}
-							onChange={(e) => setEditData({...editData, node: e.target.value})}
-							helperText="Please select a using node"
-						>
-							<MenuItem value={''}>---</MenuItem>
-							{store.map((option) => (
-								<MenuItem key={option.tag} value={option.tag}>
-									{option.tag}
-								</MenuItem>
-							))}
-						</TextField>
-					</div>
-					<div style="margin: 1rem;">
-						<TextField
-							required
-							// fullWidth
-							label="Node"
-							value={editData.node}
-							onChange={(e) => setEditData({...editData, node: e.target.value})}
-							InputLabelProps={{ shrink: !!editData.node }}
-							helperText="Or input a node"
-						/>
-					</div>
-
-					<div style="margin: 1rem;">
-						<TextField
-							required
-							multiline
-							label="Note"
-							value={editData.note}
-							onChange={(e) => setEditData({...editData, note: e.target.value})}
-							helperText="註解"
-						/>
-					</div>
-
-					<hr />
-
-					{/* TODO: or from file */}
-					<div style="margin: 1rem;">
-						<TextField
-							required
-							fullWidth
-							label="Master Key (base64)"
-							value={editData.masterKey}
-							onChange={(e) => setEditData({...editData, masterKey: e.target.value})}
-						/>
-					</div>
-					<div style="margin: 2rem;">
-						<ButtonGroup disableElevation variant="contained" fullWidth="true">
-							<Button className={classes.noUppercase} onClick={handleCancel}>Cancel</Button>
-							<Button className={classes.noUppercase} onClick={handleAdd} color="primary" >Add</Button>
-						</ButtonGroup>
-					</div>
-				</Box>
+			{(editMode !== 0) &&
+				<KeyEdit
+					isNew={editMode == 1}
+					editData={editData}
+					setEditData={setEditData}
+					onCancel={handleCancel}
+					onAdd={handleAdd}
+					onSave={handleEditSave}
+					onRemove={handleRemove}
+				/>
 			}
 
 			{/* dummy link for download file */}
