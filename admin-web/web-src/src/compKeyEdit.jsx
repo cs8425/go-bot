@@ -158,6 +158,7 @@ function KeyEditPanel(props) {
 	}
 	const handleFile = (val) => {
 		// console.log('[file]', val);
+		if (!val.length) return;
 		let reader = new FileReader();
 		reader.onload = (e) => {
 			const json = JSON.parse(e.target.result);

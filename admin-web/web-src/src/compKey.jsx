@@ -212,6 +212,7 @@ function KeyPanel(props) {
 	}
 	const handleFile = (val) => {
 		// console.log('[file]', val);
+		if (!val.length) return;
 		let reader = new FileReader();
 		reader.onload = (e) => {
 			const json = JSON.parse(e.target.result);
@@ -230,12 +231,18 @@ function KeyPanel(props) {
 
 			reqs.length && Promise.allSettled(reqs).then((rets) => {
 				// {status: "fulfilled", value: [...]}
-				console.log('[load]key state', rets);
-				let last = rets.pop();
+				// console.log('[load]key state', rets);
 				// TODO: error handle
-				last.value.json().then(function (d) {
-					if (d.sort) d.sort();
-					setMasterKeys(d);
+				reqs = rets.filter((res) => res.status === 'fulfilled').map((res) => res.value.json());
+				reqs.length && Promise.allSettled(reqs).then((rets) => {
+					console.log('[load]key state: json', rets);
+					rets = rets.filter((res) => res.status === 'fulfilled').map((res) => res.value);
+					let last = rets[0];
+					rets.forEach(ret => {
+						if (ret.length > last.length) last = ret;
+					});
+					if (last.sort) last.sort();
+					setMasterKeys(last);
 				});
 			});
 		}
