@@ -20,7 +20,7 @@ import CardHeader from '@material-ui/core/CardHeader';
 
 import { AlertDialog, PopoverDialog } from './comp.jsx';
 import { DragNdrop } from './dragzone.jsx';
-import { KeyEdit } from './compUI.jsx';
+import { KeyEdit, PwdDialog } from './compUI.jsx';
 
 const useStyles = makeStyles((theme) => ({
 	addBtn: {
@@ -143,6 +143,7 @@ function KeyPanel(props) {
 	const [editData, setEditData] = useState({});
 
 	const [dialogData, setDialog] = useState(null);
+	const [pwdDialog, setPwdDialog] = useState(null);
 	const [popover, setPopover] = useState(null);
 
 	// add req & cancel
@@ -217,44 +218,65 @@ function KeyPanel(props) {
 		reader.onload = (e) => {
 			const json = JSON.parse(e.target.result);
 
-			// TODO: Dialog for password
+			// Dialog for password
 			if (cryptoApi.isEncrypt(json)) {
 				console.log('[file]encrypted', json);
+				setPwdDialog({
+					title: '檔案已加密',
+					cb: (ev, val) => handleFileDec(json, val),
+				});
 				return;
 			}
 
 			// console.log(e, json);
-			let reqs = [];
-			json?.keys?.forEach((v, i) => {
-				let param = {
-					uuid: v.tag,
-					key: v.key,
-				};
-				reqs.push(fetch('./api/key/?op=set', {
-					body: JSON.stringify(param),
-					method: 'POST',
-				}));
-			});
-
-			reqs.length && Promise.allSettled(reqs).then((rets) => {
-				// {status: "fulfilled", value: [...]}
-				// console.log('[load]key state', rets);
-				// TODO: error handle
-				reqs = rets.filter((res) => res.status === 'fulfilled').map((res) => res.value.json());
-				reqs.length && Promise.allSettled(reqs).then((rets) => {
-					console.log('[load]key state: json', rets);
-					rets = rets.filter((res) => res.status === 'fulfilled').map((res) => res.value);
-					let last = rets[0];
-					rets.forEach(ret => {
-						if (ret.length > last.length) last = ret;
-					});
-					if (last.sort) last.sort();
-					setMasterKeys(last);
-				});
-			});
+			loadKeys(json);
 		}
 		reader.readAsText(val[0]);
 	};
+	const handleFileDec = async (json, pwd) => {
+		console.log('[pwd]', pwd, json);
+		// TODO: decrypt in client? or send encrypted data
+		try { // decrypt data
+			const obj = await cryptoApi.decrypt(json, pwd);
+			console.log('[dec]', obj);
+			loadKeys(obj);
+		} catch (err) {
+			setDialog({
+				title: 'Error',
+				msg: err.toString(),
+			});
+		}
+	}
+	const loadKeys = (json) => {
+		let reqs = [];
+		json?.keys?.forEach((v, i) => {
+			let param = {
+				uuid: v.tag,
+				key: v.key,
+			};
+			reqs.push(fetch('./api/key/?op=set', {
+				body: JSON.stringify(param),
+				method: 'POST',
+			}));
+		});
+
+		reqs.length && Promise.allSettled(reqs).then((rets) => {
+			// {status: "fulfilled", value: [...]}
+			// console.log('[load]key state', rets);
+			// TODO: error handle
+			reqs = rets.filter((res) => res.status === 'fulfilled').map((res) => res.value.json());
+			reqs.length && Promise.allSettled(reqs).then((rets) => {
+				console.log('[load]key state: json', rets);
+				rets = rets.filter((res) => res.status === 'fulfilled').map((res) => res.value);
+				let last = rets[0];
+				rets.forEach(ret => {
+					if (ret.length > last.length) last = ret;
+				});
+				if (last.sort) last.sort();
+				setMasterKeys(last);
+			});
+		});
+	}
 
 	const handleClearBtn = (e) => {
 		setPopover({
@@ -277,6 +299,7 @@ function KeyPanel(props) {
 	return (
 		<div>
 			<AlertDialog data={dialogData} setDialog={setDialog}></AlertDialog>
+			<PwdDialog data={pwdDialog} setDialog={setPwdDialog} />
 			{!isAddMode &&
 				<DragNdrop ref={fileRef} handleFile={handleFile} onClick={false}>
 					<Tooltip title="Add" aria-label="add">
