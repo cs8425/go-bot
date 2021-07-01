@@ -1,14 +1,14 @@
 package main
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/url"
 	"os"
-	"encoding/base64"
-	"encoding/json"
-	"fmt"
 
 	"crypto/tls"
 	"net/http"
@@ -18,28 +18,26 @@ import (
 	vlog "local/log"
 )
 
-
-
 // default config
 const (
 	fakeHttp = true // hub act as http server
-	wsObf = true // fake as websocket
-	onlyWs = false
+	wsObf    = true // fake as websocket
+	onlyWs   = false
 
-	targetUrl = "/"
+	targetUrl    = "/"
 	tokenCookieA = "cna"
 	tokenCookieB = "_tb_token_"
 	tokenCookieC = "_cna"
 
 	defBindAddr = "wss://:8787/"
-	defCrtFile = "server.crt"
-	defKeyFile = "server.key"
-	defWww = "./www"
+	defCrtFile  = "server.crt"
+	defKeyFile  = "server.key"
+	defWww      = "./www"
 )
 
 var (
 	bindAddr = flag.String("l", "", "bind port")
-	verb = flag.Int("v", 6, "verbosity")
+	verb     = flag.Int("v", 6, "verbosity")
 
 	//fakeHttp = flag.Bool("http", true, "act as http server")
 
@@ -50,24 +48,24 @@ var (
 	//tokenCookieC = flag.String("cc", "_cna", "token cookie name C")
 	//headerServer = flag.String("hdsrv", "nginx", "http header: Server") // not yet
 
-	crtFile    = flag.String("crt", "", "PEM encoded certificate file")
-	keyFile    = flag.String("key", "", "PEM encoded private key file")
+	crtFile = flag.String("crt", "", "PEM encoded certificate file")
+	keyFile = flag.String("key", "", "PEM encoded private key file")
 
 	configJson = flag.String("c", "", "config.json")
 )
 
 type Config struct {
-	HubPrivKey  []byte `json:"hubkey,omitempty"` // RSA private key for client check
-	AdmPubKey   []byte `json:"admkey,omitempty"` // ECDSA public key for admin check
+	HubPrivKey  []byte            `json:"hubkey,omitempty"`  // RSA private key for client check
+	AdmPubKey   []byte            `json:"admkey,omitempty"`  // ECDSA public key for admin check
 	HubPrivKeys map[string][]byte `json:"hubkeys,omitempty"` // RSA private key for client check
 	AdmPubKeys  map[string][]byte `json:"admkeys,omitempty"` // ECDSA public key for admin check
 
 	BindAddr     string `json:"bind,omitempty"` // raw, http, ws (https/wss by key/crt)
 	OnlyWs       bool   `json:"onlyws,omitempty"`
 	WwwRoot      string `json:"www,omitempty"` // web/file server root dir
-	TokenCookieA string `json:"ca,omitempty"` // token cookie name A
-	TokenCookieB string `json:"cb,omitempty"` // token cookie name B
-	TokenCookieC string `json:"cc,omitempty"` // token cookie name C
+	TokenCookieA string `json:"ca,omitempty"`  // token cookie name A
+	TokenCookieB string `json:"cb,omitempty"`  // token cookie name B
+	TokenCookieC string `json:"cc,omitempty"`  // token cookie name C
 	CrtFile      string `json:"crt,omitempty"` // PEM encoded certificate file
 	KeyFile      string `json:"key,omitempty"` // PEM encoded private key file
 }
@@ -91,14 +89,14 @@ func main() {
 	akey, _ := base64.StdEncoding.DecodeString("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEc8tgqZX82zrd6809YWzJkh4zhvaoCEbkU8yxBW+a9U1L+XgItJGRL33vYecv4lH9ovSNgJiyvnqdmqkJtwq52Q==")
 
 	conf := &Config{
-		BindAddr: defBindAddr,
-		HubPrivKey: ikey,
-		AdmPubKey: akey,
+		BindAddr:     defBindAddr,
+		HubPrivKey:   ikey,
+		AdmPubKey:    akey,
 		TokenCookieA: tokenCookieA,
 		TokenCookieB: tokenCookieB,
 		TokenCookieC: tokenCookieC,
-		CrtFile: defCrtFile,
-		KeyFile: defKeyFile,
+		CrtFile:      defCrtFile,
+		KeyFile:      defKeyFile,
 	}
 	if *configJson != "" {
 		err := parseJSONConfig(conf, *configJson)
@@ -172,7 +170,6 @@ func main() {
 			http.Handle("/", fileHandler) // now add to http.DefaultServeMux
 		}
 
-
 		// start http server
 		httpSrv := &http.Server{Addr: bind, Handler: nil}
 		go startServer(httpSrv, useTLS, conf.CrtFile, conf.KeyFile)
@@ -220,7 +217,7 @@ func startServer(srv *http.Server, useTLS bool, crtFile string, keyFile string) 
 				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
 
 				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, // http/2 must
-				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, // http/2 must
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,   // http/2 must
 
 				tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
 				tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
@@ -229,7 +226,7 @@ func startServer(srv *http.Server, useTLS bool, crtFile string, keyFile string) 
 				tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
 
 				tls.TLS_RSA_WITH_AES_256_GCM_SHA384, // weak
-				tls.TLS_RSA_WITH_AES_256_CBC_SHA, // waek
+				tls.TLS_RSA_WITH_AES_256_CBC_SHA,    // waek
 			},
 		}
 		srv.TLSConfig = cfg
@@ -246,4 +243,3 @@ func startServer(srv *http.Server, useTLS bool, crtFile string, keyFile string) 
 		vlog.Vf(2, "[server] ListenAndServe error: %v", err)
 	}
 }
-
