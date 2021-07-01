@@ -11,6 +11,7 @@ import ButtonGroup from '@material-ui/core/ButtonGroup';
 
 import TextField from '@material-ui/core/TextField';
 import MenuItem from '@material-ui/core/MenuItem';
+import InputAdornment from '@material-ui/core/InputAdornment';
 import Typography from '@material-ui/core/Typography';
 
 import AddCircleIcon from '@material-ui/icons/AddCircle';
@@ -138,17 +139,49 @@ import DialogActions from '@material-ui/core/DialogActions';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogTitle from '@material-ui/core/DialogTitle';
+import IconButton from '@material-ui/core/IconButton';
+
+import Visibility from '@material-ui/icons/Visibility';
+import VisibilityOff from '@material-ui/icons/VisibilityOff';
+
+import { LinearProgressWithLabel } from './pwdstrength.jsx';
 
 function PwdDialog(props) {
-	const { children, data, setDialog, isEdit, ...other } = props;
-	const [pwd, setPwd] = useState({});
+	const { children, data, setDialog, setPwd, ...other } = props;
+	const initState = () => ({
+		showPwd0: false,
+		pwd0: '',
+
+		showPwd1: false,
+		pwd1: '',
+
+		pwdMatch: true,
+
+		hasError: false,
+	});
+	const [values, setValues] = useState(initState());
+
+	const handleChange = (prop) => (e) => {
+		// console.log('[val]', prop, e, e.target.value);
+		setValues({ ...values, pwdMatch: true, [prop]: e.target.value });
+	};
+	const handleClickShowPassword = (prop) => () => {
+		setValues({ ...values, [prop]: !values[prop] });
+	};
+
 	const handleClose = (e) => {
-		setPwd({});
+		setValues(initState());
 		setDialog(null);
 	};
 	const handleOk = (e) => {
+		if (setPwd) {
+			if (values.pwd0 !== values.pwd1) {
+				setValues({ ...values, pwdMatch: false });
+				return;
+			}
+		}
 		if (typeof data?.cb == 'function') {
-			let ret = data.cb(e, pwd);
+			let ret = data.cb(e, values.pwd0);
 			if (ret === false) return;
 		}
 		handleClose(e);
@@ -168,15 +201,68 @@ function PwdDialog(props) {
 				{data?.msg &&
 					<DialogContentText>{data?.msg}</DialogContentText>
 				}
+
 				<TextField
+					variant="outlined"
+					required
 					autoFocus
 					margin="dense"
 					label="Password"
-					type="password"
 					fullWidth
-					value={pwd.key}
-					onChange={(e) => setPwd({ ...pwd, key: e.target.value })}
+					InputProps={{
+						endAdornment: (
+							<InputAdornment position="end">
+								<IconButton
+									aria-label="toggle password visibility"
+									onClick={handleClickShowPassword('showPwd0')}
+									onMouseDown={(e) => e.preventDefault()}
+									edge="end"
+								>
+									{values.showPwd0 ? <Visibility /> : <VisibilityOff />}
+								</IconButton>
+							</InputAdornment>
+						),
+					}}
+					type={values.showPwd0 ? 'text' : 'password'}
+					value={values.pwd0}
+					onChange={handleChange('pwd0')}
+					error={!values.pwdMatch}
 				/>
+
+				{setPwd &&
+					<>
+						{!!values.pwd0 &&
+							<LinearProgressWithLabel style={{ 'display': 'inline-flex', 'width': '100%' }} value={values.pwd0} />
+						}
+
+						<TextField
+							variant="outlined"
+							required
+							margin="dense"
+							label="Password Again"
+							fullWidth
+							InputProps={{
+								endAdornment: (
+									<InputAdornment position="end">
+										<IconButton
+											aria-label="toggle password visibility"
+											onClick={handleClickShowPassword('showPwd1')}
+											onMouseDown={(e) => e.preventDefault()}
+											edge="end"
+										>
+											{values.showPwd1 ? <Visibility /> : <VisibilityOff />}
+										</IconButton>
+									</InputAdornment>
+								),
+							}}
+							type={values.showPwd1 ? 'text' : 'password'}
+							value={values.pwd1}
+							onChange={handleChange('pwd1')}
+							helperText={(values.pwdMatch) ? null : 'Password not same!!'}
+							error={!values.pwdMatch}
+						/>
+					</>
+				}
 			</DialogContent>
 
 			<DialogActions>

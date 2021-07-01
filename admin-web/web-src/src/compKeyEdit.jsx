@@ -170,7 +170,7 @@ function KeyEditPanel(props) {
 				console.log('[file]encrypted', json);
 				setPwdDialog({
 					title: '檔案已加密',
-					cb: (ev, val) => handleFileDec(json, val.key),
+					cb: (ev, val) => handleFileDec(json, val),
 				});
 				return;
 			}
@@ -208,7 +208,8 @@ function KeyEditPanel(props) {
 		//  Dialog for password
 		setPwdDialog({
 			title: '請輸入加密密碼',
-			cb: (ev, val) => handleSaveEnc(dump, val.key),
+			setPwd: true,
+			cb: (ev, val) => handleSaveEnc(dump, val),
 		});
 	}
 
@@ -224,7 +225,7 @@ function KeyEditPanel(props) {
 	return (
 		<div>
 			<AlertDialog data={dialogData} setDialog={setDialog} />
-			<PwdDialog data={pwdDialog} setDialog={setPwdDialog} />
+			<PwdDialog data={pwdDialog} setDialog={setPwdDialog} setPwd={pwdDialog?.setPwd} />
 			{(editMode === 0) &&
 				<DragNdrop ref={fileRef} handleFile={handleFile} onClick={false}>
 					<Tooltip title="Load" aria-label="load">
