@@ -54,8 +54,9 @@ esbuild.build({
 	entryPoints: ['src/main.js'],
 	bundle: true,
 	minify: true,
+	pure: ['console.log'], // remove debug log
 	sourcemap: false,
-	sourcesContent: true,
+	sourcesContent: false,
 	target: [
 		'es2015',
 	],

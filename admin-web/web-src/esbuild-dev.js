@@ -35,6 +35,8 @@ esbuild.serve({
 }, {
 	entryPoints: ['src/main.js'],
 	bundle: true,
+	// minify: true,
+	// pure: ['console.log'],
 	sourcemap: true,
 	sourcesContent: true,
 	target: [
