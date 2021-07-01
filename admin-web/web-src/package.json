@@ -13,8 +13,6 @@
         "esbuild": "^0.11.17"
     },
     "scripts": {
-        "build-cli": "esbuild src/main.js --bundle --minify --target=es2015 --sourcemap --sources-content=false --outfile=dist/js/main.js  --loader:.js=jsx --jsx-factory=h --jsx-fragment=Fragment",
-        "start-cli": "esbuild src/main.js --bundle --target=es2015 --sourcemap --serve=127.0.0.1:8000 --servedir=public/ --outfile=public/js/main.js --loader:.js=jsx --jsx-factory=h --jsx-fragment=Fragment",
         "build": "node esbuild.js",
         "start": "node esbuild-dev.js"
     }

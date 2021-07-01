@@ -42,7 +42,7 @@ esbuild.serve({
 	target: [
 		'es2015',
 	],
-	outfile: 'public/js/main.js',
+	outfile: 'public/bundle.js',
 	loader: {
 		'.js': 'jsx',
 	},

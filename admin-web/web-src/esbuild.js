@@ -60,7 +60,7 @@ esbuild.build({
 	target: [
 		'es2015',
 	],
-	outfile: '../www/js/main.js',
+	outfile: '../www/bundle.js',
 	loader: {
 		'.js': 'jsx',
 	},
