@@ -220,7 +220,6 @@ function KeyPanel(props) {
 
 			// Dialog for password
 			if (cryptoApi.isEncrypt(json)) {
-				console.log('[file]encrypted', json);
 				setPwdDialog({
 					title: '檔案已加密',
 					cb: (ev, val) => handleFileDec(json, val),
@@ -228,17 +227,14 @@ function KeyPanel(props) {
 				return;
 			}
 
-			// console.log(e, json);
 			loadKeys(json);
 		}
 		reader.readAsText(val[0]);
 	};
 	const handleFileDec = async (json, pwd) => {
-		console.log('[pwd]', pwd, json);
 		// TODO: decrypt in client? or send encrypted data
 		try { // decrypt data
 			const obj = await cryptoApi.decrypt(json, pwd);
-			console.log('[dec]', obj);
 			loadKeys(obj);
 		} catch (err) {
 			setDialog({

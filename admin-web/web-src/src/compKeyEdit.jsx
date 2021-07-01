@@ -163,11 +163,9 @@ function KeyEditPanel(props) {
 		let reader = new FileReader();
 		reader.onload = (e) => {
 			const json = JSON.parse(e.target.result);
-			// console.log(e, json);
 
 			// Dialog for password
 			if (cryptoApi.isEncrypt(json)) {
-				console.log('[file]encrypted', json);
 				setPwdDialog({
 					title: '檔案已加密',
 					cb: (ev, val) => handleFileDec(json, val),
@@ -180,10 +178,8 @@ function KeyEditPanel(props) {
 		reader.readAsText(val[0]);
 	};
 	const handleFileDec = async (json, pwd) => {
-		console.log('[pwd]', pwd, json);
 		try { // decrypt data
 			const obj = await cryptoApi.decrypt(json, pwd);
-			console.log('[dec]', obj);
 			setMasterKeys(obj?.keys);
 		} catch (err) {
 			setDialog({
@@ -201,7 +197,6 @@ function KeyEditPanel(props) {
 		const handleSaveEnc = async (dump, pwd) => {
 			if (pwd === '') dumpJson(dummyDlEl.current, dump, 'keys.json');
 			const obj = await cryptoApi.encrypt(dump, pwd);
-			console.log('[enc]', obj);
 			dumpJson(dummyDlEl.current, obj, 'keys.json');
 		}
 
