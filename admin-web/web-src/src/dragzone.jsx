@@ -40,7 +40,8 @@ const DragNdrop = forwardRef((props, ref) => {
 	const handleFiles = (e) => {
 		let files = e?.target?.files || e?.dataTransfer?.files;
 		// console.log('[drag]handleFiles', this, e, files);
-		handleFile(files);
+		let clear = handleFile(files);
+		if (clear !== false && e?.target?.value) e.target.value = '';
 	}
 	const drop = (e) => {
 		e.preventDefault();
