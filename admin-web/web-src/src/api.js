@@ -29,3 +29,88 @@ const dumpJson = (el, data, fileName) => {
 };
 
 export { dumpJson };
+
+const PBKDF2_deriveKey = async (pwd, iter = 4096, salt = null) => {
+	const keyMaterial = await crypto.subtle.importKey(
+		"raw",
+		new TextEncoder().encode(pwd),
+		"PBKDF2",
+		false,
+		["deriveBits", "deriveKey"]
+	);
+
+	return await crypto.subtle.deriveKey(
+		{
+			"name": "PBKDF2",
+			salt: salt,
+			"iterations": iter,
+			"hash": "SHA-256"
+		},
+		keyMaterial,
+		{ "name": "AES-GCM", "length": 256 },
+		true,
+		["encrypt", "decrypt"]
+	);
+}
+const buf2hex = (buffer) => { // buffer is an ArrayBuffer
+	// https://stackoverflow.com/questions/40031688/javascript-arraybuffer-to-hex
+	return [...new Uint8Array(buffer)].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+const hex2buf = (hex) => { // return Uint8Array, get ArrayBuffer by `.buffer`
+	// https://gist.github.com/don/871170d88cf6b9007f7663fdbc23fe09
+	// https://blog.csdn.net/sinat_36728518/article/details/117132147
+	return new Uint8Array(hex.match(/[\da-f]{2}/gi).map((h) => parseInt(h, 16)));
+}
+const sha256Sum = async (dataStr) => {
+	// https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest
+	const msgUint8 = new TextEncoder().encode(dataStr);                 // encode as (utf-8) Uint8Array
+	const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8); // hash the message
+	return buf2hex(hashBuffer);
+}
+const sha256SumBuf = async (data) => {
+	const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+	return buf2hex(hashBuffer);
+}
+
+const cryptoApi = {
+	isEncrypt: (obj) => obj.enc && obj.iv && obj.salt && obj.mac,
+	decrypt: async (obj, pwd, iter = 131072) => { // iter = 2^17
+		const { enc, iv, salt, mac } = obj;
+		const cyphertext = hex2buf(enc).buffer;
+		console.log('[decrypt]0', cyphertext, iv, salt);
+
+		// check mac of cyphertext
+		const ck = await sha256SumBuf(cyphertext);
+		if (ck !== mac) {
+			throw 'cropped data or wrong password';
+		}
+		const key = await PBKDF2_deriveKey(pwd, iter, hex2buf(salt));
+		const cleartext = await crypto.subtle.decrypt({ name: 'AES-GCM', tagLength: 32, iv: hex2buf(iv) }, key, cyphertext);
+		const json = JSON.parse(new TextDecoder().decode(cleartext));
+		console.log('[decrypt]', json);
+		return json;
+	},
+	encrypt: async (data, pwd, iter = 131072) => { // iter = 2^17
+		const text = JSON.stringify(data, '');
+		const salt = crypto.getRandomValues(new Uint8Array(16));
+		const key = await PBKDF2_deriveKey(pwd, iter, salt);
+		const iv = await crypto.getRandomValues(new Uint8Array(32)) // IV must be the same length (in bits) as the key
+		const cyphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', tagLength: 32, iv }, key, new TextEncoder().encode(text))
+
+		// TODO: base64?
+		const obj = {
+			enc: buf2hex(cyphertext),
+			iv: buf2hex(iv.buffer),
+			salt: buf2hex(salt.buffer),
+			mac: await sha256SumBuf(cyphertext), // TODO
+		};
+		console.log('[encrypt]', obj);
+		return obj;
+	},
+	buf2hex,
+	hex2buf,
+	sha256Sum,
+	sha256SumBuf,
+};
+
+export { cryptoApi };

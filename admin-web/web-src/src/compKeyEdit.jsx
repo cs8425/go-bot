@@ -2,7 +2,7 @@
 import { h, Fragment } from 'preact';
 import { useState, useRef } from 'preact/hooks';
 
-import { dumpJson } from './api.js';
+import { dumpJson, cryptoApi } from './api.js';
 
 import { makeStyles } from '@material-ui/core/styles';
 
@@ -20,7 +20,7 @@ import CardHeader from '@material-ui/core/CardHeader';
 
 import { AlertDialog, PopoverDialog } from './comp.jsx';
 import { DragNdrop } from './dragzone.jsx';
-import { KeyEdit } from './compUI.jsx';
+import { KeyEdit, PwdDialog } from './compUI.jsx';
 
 const useStyles = makeStyles((theme) => ({
 	addBtn: {
@@ -82,6 +82,7 @@ function KeyEditPanel(props) {
 	const dummyDlEl = useRef(null);
 	const [dialogData, setDialog] = useState(null);
 	const [popover, setPopover] = useState(null);
+	const [pwdDialog, setPwdDialog] = useState(null);
 
 	const [masterKeys, setMasterKeys] = useState([]);
 	const [editData, setEditData] = useState({});
@@ -164,14 +165,51 @@ function KeyEditPanel(props) {
 			const json = JSON.parse(e.target.result);
 			// console.log(e, json);
 
+			// Dialog for password
+			if (cryptoApi.isEncrypt(json)) {
+				console.log('[file]encrypted', json);
+				setPwdDialog({
+					title: '檔案已加密',
+					cb: (ev, val) => handleFileDec(json, val.key),
+				});
+				return;
+			}
+
 			setMasterKeys(json?.keys);
 		}
 		reader.readAsText(val[0]);
 	};
-	const handleSave = (e) => {
-		dumpJson(dummyDlEl.current, {
+	const handleFileDec = async (json, pwd) => {
+		console.log('[pwd]', pwd, json);
+		try { // decrypt data
+			const obj = await cryptoApi.decrypt(json, pwd);
+			console.log('[dec]', obj);
+			setMasterKeys(obj?.keys);
+		} catch (err) {
+			setDialog({
+				title: 'Error',
+				msg: err.toString(),
+			});
+		}
+	}
+	const handleSave = async (e) => {
+		const dump = {
 			keys: masterKeys,
-		}, 'keys.json');
+		};
+		// dumpJson(dummyDlEl.current, dump, 'keys.json');
+
+		const handleSaveEnc = async (dump, pwd) => {
+			if (pwd === '') dumpJson(dummyDlEl.current, dump, 'keys.json');
+			const obj = await cryptoApi.encrypt(dump, pwd);
+			console.log('[enc]', obj);
+			dumpJson(dummyDlEl.current, obj, 'keys.json');
+		}
+
+		//  Dialog for password
+		setPwdDialog({
+			title: '請輸入加密密碼',
+			cb: (ev, val) => handleSaveEnc(dump, val.key),
+		});
 	}
 
 	const handleClearBtn = (e) => {
@@ -185,7 +223,8 @@ function KeyEditPanel(props) {
 
 	return (
 		<div>
-			<AlertDialog data={dialogData} setDialog={setDialog}></AlertDialog>
+			<AlertDialog data={dialogData} setDialog={setDialog} />
+			<PwdDialog data={pwdDialog} setDialog={setPwdDialog} />
 			{(editMode === 0) &&
 				<DragNdrop ref={fileRef} handleFile={handleFile} onClick={false}>
 					<Tooltip title="Load" aria-label="load">

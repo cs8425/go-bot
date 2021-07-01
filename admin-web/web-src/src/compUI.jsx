@@ -132,3 +132,59 @@ function KeyEdit(props) {
 }
 
 export { KeyEdit };
+
+import Dialog from '@material-ui/core/Dialog';
+import DialogActions from '@material-ui/core/DialogActions';
+import DialogContent from '@material-ui/core/DialogContent';
+import DialogContentText from '@material-ui/core/DialogContentText';
+import DialogTitle from '@material-ui/core/DialogTitle';
+
+function PwdDialog(props) {
+	const { children, data, setDialog, isEdit, ...other } = props;
+	const [pwd, setPwd] = useState({});
+	const handleClose = (e) => {
+		setPwd({});
+		setDialog(null);
+	};
+	const handleOk = (e) => {
+		if (typeof data?.cb == 'function') {
+			let ret = data.cb(e, pwd);
+			if (ret === false) return;
+		}
+		handleClose(e);
+	};
+
+	return (
+		<Dialog
+			open={data !== null}
+			onClose={handleClose}
+			maxWidth='lg'
+		>
+			{data?.title &&
+				<DialogTitle>{data?.title}</DialogTitle>
+			}
+
+			<DialogContent dividers>
+				{data?.msg &&
+					<DialogContentText>{data?.msg}</DialogContentText>
+				}
+				<TextField
+					autoFocus
+					margin="dense"
+					label="Password"
+					type="password"
+					fullWidth
+					value={pwd.key}
+					onChange={(e) => setPwd({ ...pwd, key: e.target.value })}
+				/>
+			</DialogContent>
+
+			<DialogActions>
+				<Button onClick={handleClose} color="primary">Cancel</Button>
+				<Button onClick={handleOk} color="primary">OK</Button>
+			</DialogActions>
+		</Dialog>
+	);
+}
+
+export { PwdDialog };

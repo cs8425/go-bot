@@ -2,7 +2,7 @@
 import { h, Fragment } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 
-import { fetchReq } from './api.js';
+import { fetchReq, cryptoApi } from './api.js';
 
 import { makeStyles } from '@material-ui/core/styles';
 
@@ -216,6 +216,13 @@ function KeyPanel(props) {
 		let reader = new FileReader();
 		reader.onload = (e) => {
 			const json = JSON.parse(e.target.result);
+
+			// TODO: Dialog for password
+			if (cryptoApi.isEncrypt(json)) {
+				console.log('[file]encrypted', json);
+				return;
+			}
+
 			// console.log(e, json);
 			let reqs = [];
 			json?.keys?.forEach((v, i) => {

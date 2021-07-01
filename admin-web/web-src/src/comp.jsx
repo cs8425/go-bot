@@ -71,27 +71,26 @@ function AlertDialog(props) {
 	};
 
 	return (
-		<div>
-			<Dialog
-				open={data !== null}
-				onClose={handleClose}
-			>
-				{data?.title &&
-					<DialogTitle>{data?.title}</DialogTitle>
+		<Dialog
+			open={data !== null}
+			onClose={handleClose}
+			maxWidth='lg'
+		>
+			{data?.title &&
+				<DialogTitle>{data?.title}</DialogTitle>
+			}
+			{(children || data?.msg) &&
+				<DialogContent dividers>
+					<DialogContentText>{children || data?.msg}</DialogContentText>
+				</DialogContent>
+			}
+			<DialogActions>
+				{!footer &&
+					<Button onClick={handleClose} color="primary" autoFocus>OK</Button>
 				}
-				{(children || data?.msg) &&
-					<DialogContent dividers>
-						<DialogContentText>{children || data?.msg}</DialogContentText>
-					</DialogContent>
-				}
-				<DialogActions>
-					{!footer &&
-						<Button onClick={handleClose} color="primary" autoFocus>OK</Button>
-					}
-					{footer}
-				</DialogActions>
-			</Dialog>
-		</div>
+				{footer}
+			</DialogActions>
+		</Dialog>
 	);
 }
 
