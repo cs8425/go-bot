@@ -33,7 +33,7 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 function KeyEdit(props) {
-	const { children, editData, setEditData, isNew, onCancel, onAdd, onSave, onRemove, ...other } = props;
+	const { children, editData, setEditData, isNew, onCancel, onAdd, onSave, onRemove, showNote, ...other } = props;
 	const classes = useStyles();
 	const store = useContext(NodeStore);
 	const [dialogData, setDialog] = useState(null);
@@ -89,16 +89,17 @@ function KeyEdit(props) {
 				/>
 			</div>
 
-			<div style="margin: 1rem;">
-				<TextField
-					multiline
-					label="Note"
-					value={editData.note}
-					onChange={(e) => setEditData({ ...editData, note: e.target.value })}
-					helperText="註解"
-				/>
-			</div>
-
+			{(showNote !== false) &&
+				<div style="margin: 1rem;">
+					<TextField
+						multiline
+						label="Note"
+						value={editData.note}
+						onChange={(e) => setEditData({ ...editData, note: e.target.value })}
+						helperText="註解"
+					/>
+				</div>
+			}
 			{/* <hr /> */}
 
 			{/* TODO: or from file */}

@@ -307,6 +307,7 @@ function KeyPanel(props) {
 			{isAddMode &&
 				<KeyEdit
 					isNew={true}
+					showNote={false}
 					editData={editData}
 					setEditData={setEditData}
 					onCancel={handleCancel}
