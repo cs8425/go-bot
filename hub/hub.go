@@ -17,6 +17,8 @@ import (
 	"lib/fakehttp"
 	"local/base"
 	vlog "local/log"
+
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // default config
@@ -34,6 +36,8 @@ const (
 	defCrtFile  = "server.crt"
 	defKeyFile  = "server.key"
 	defWww      = "./www"
+
+	Verbosity = 3
 )
 
 var (
@@ -85,6 +89,15 @@ func main() {
 	vlog.Std.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	flag.Parse()
 	vlog.Verbosity = *verb
+
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+	log.SetOutput(&lumberjack.Logger{
+		Filename:   "./hub.log",
+		MaxSize:    64,   // megabytes
+		MaxBackups: 0,    // 0 for not to remove
+		MaxAge:     0,    //days, 0 for not to remove
+		Compress:   true, // disabled by default
+	})
 
 	ikey, _ := base64.StdEncoding.DecodeString("MIIEowIBAAKCAQEArogYEOHItjtm0wJOX+hSHjGTIPUsRo/TyLGYxWVk79pNWAhCSvH9nfvpx0skefcL/Nd++Qb/zb3c+o7ZI4zbMKZJLim3yaN8IDlgrjKG7wmjB5r49++LrvRzjIJCAoeFog2PfEn3qlQ+PA26TqLsbPNZi9nsaHlwTOqGljg82g23Zqj1o5JfitJvVlRLmhPqc8kO+4Dvf08MdVS6vBGZjzWFmGx9k3rrDoi7tem22MflFnOQhgLJ4/sbd4Y71ok98ChrQhb6SzZKVWN5v7VCuKqhFLmhZuK0z0f/xkBNcMeCplVLhs/gLIU3HBmvbBSYhmN4dDL19cAv1MkQ6lb1dwIDAQABAoIBAQCXlhqY5xGlvTgUg0dBI43XLaWlFWyMKLV/9UhEAknFzOwqTpoNb9qgUcD9WHVo/TpLM3vTnNGmh4YblOBhcSCbQ4IB9zfqiPTxJASlp7rseIlBvMcKyOKgZS7K1gOxILXfRzndcH0MUjjvfdjYHceM5VtcDT24i+kO1Q9p/5RSqfGu9wz56tqEQE4Z1OTzD+dD9tGeciiyZ9qDoDC/tb0oBKSFK+DlZZOrSBSpGk2Qur4BgVAgL3wunATzGpxxaCAf+9lBEUBCrZbUkeQIKoFbvjqee5Fb2tfdqquMG1FX3CuCovsW7aMKjpAK5TsKuZD88EWje42JV6wmJ/Q4nGvBAoGBAMs6Hs/UX60uZ10mTVKoHU/Mm6lr/FBDo4LF165SX/+sH87KbNlmOO9YBZGJBm1AnsxaNYLjT39EiGlZZbCYRwre/D/9z+hY9J0Yhz/eo8fGsee3f7SU8U9kRH0CFn5MI8Wf7YgNH97uky9i41rqYtkxf2GvqMYl5yzVpQk3fu0XAoGBANvaZQs9DuwFwekzncFcejLHv2CQEDDqtEybmh5PB9YHN+RyHRlxPmYC1d1ElvHO65Tfhgcd0fL0EkSHCXFHfmsIcpSHuUlBpFSrI6btygf+U/U8VLwzXI71cpoE5n+E7rR0J5hTvTo/FccdilV/CubgIZbQ6VSaAxw4HBA5JzahAn9Q+NdN91AnsFV+x8QHKvSC1wMufdgKIukDMdC9pBSbyfjia8Ty2cfVlTyiv/XPke+zfD3V6LvD+Ypgbz4VHpcvvajD1l0ANnFAJoW87PhUoNZBfNtlF/MNruWa6ToNGEkodJAvpQsNyADc4Im1r62y3AXk5hhY2sFBG96lzXbFAoGBAKhoBUhzj++ZhWz13dyU0wH84gq8r7pYvp2D/61BynXW96hlBQdNKIgJmfqxJJK7dteF1Ou0mvLopOmbKs97/UlNoj9GK9cCkjdNFLU0prIyzesnOJ0lFrxnJU73e/yoPhU6eG4FjwiD9FGevi05cIdjnjchdeoZQ1KlZFHFBdWhAoGBAMrwhd20ww6/VrVQShLVB0P3Zn3aKUqUvU9si616iyNSpuZ9dstXYNYAbPav02PL0NOPMDHC6/SERbJQQCnnBqbDBwmUHVmr0W3rvD+DUgihpgTTxArb0FfguJQlKN6whlHOLrf6sC1YebQWhFvPTNQqfSjfO9/g37usDNcskguf")
 	akey, _ := base64.StdEncoding.DecodeString("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEc8tgqZX82zrd6809YWzJkh4zhvaoCEbkU8yxBW+a9U1L+XgItJGRL33vYecv4lH9ovSNgJiyvnqdmqkJtwq52Q==")
@@ -291,24 +304,24 @@ func handleEvent(evType string, mainConn net.Conn, streamConn net.Conn, argv ...
 	// TODO: log to file
 	switch evType {
 	case base.EV_admin_conn:
-		vlog.Vf(2, "[ev][%v] %v <= %v", evType, mainConn.RemoteAddr(), argv)
+		Vf(2, "[ev][%v] %v <= %v", evType, mainConn.RemoteAddr(), argv)
 		// Rx: admin => hub
 		// Tx: hub => admin
 		return NewConn(mainConn), nil
 
 	case base.EV_admin_conn_cls:
 		conn := mainConn.(*Conn)
-		vlog.Vf(2, "[ev][%v] %v <= %v  Rx = %v / Tx = %v", evType, mainConn.RemoteAddr(), argv, conn.RxByteString(), conn.TxByteString())
+		Vf(2, "[ev][%v] %v <= %v  Rx = %v / Tx = %v", evType, mainConn.RemoteAddr(), argv, conn.RxByteString(), conn.TxByteString())
 
 	case base.EV_admin_stream:
-		vlog.Vf(2, "[ev][%v] %v <- %v", evType, mainConn.RemoteAddr(), argv)
+		Vf(2, "[ev][%v] %v <- %v", evType, mainConn.RemoteAddr(), argv)
 		// Rx: admin => hub => bot
 		// Tx: bot => hub => admin
 		return NewConn(streamConn), nil
 
 	case base.EV_admin_stream_cls:
 		conn := streamConn.(*Conn)
-		vlog.Vf(2, "[ev][%v] %v <- %v  Rx = %v / Tx = %v", evType, mainConn.RemoteAddr(), argv, conn.RxByteString(), conn.TxByteString())
+		Vf(2, "[ev][%v] %v <- %v  Rx = %v / Tx = %v", evType, mainConn.RemoteAddr(), argv, conn.RxByteString(), conn.TxByteString())
 
 	}
 	return nil, nil
@@ -341,4 +354,15 @@ func Vsize(byteCount int64) (ret string) {
 	}
 	ret = fmt.Sprintf("%06.2f %sB", tmp, s)
 	return
+}
+
+func Vf(level int, format string, v ...interface{}) {
+	if level <= Verbosity {
+		log.Printf(format, v...)
+	}
+}
+func Vln(level int, v ...interface{}) {
+	if level <= Verbosity {
+		log.Println(v...)
+	}
 }
