@@ -38,6 +38,8 @@ type Hub struct {
 	IKeys map[string]*RSAPrivKey
 	AKeys map[string][]byte
 	CTags map[string]bool
+
+	evFn EventCallbackFunc
 }
 
 func NewHub() *Hub {
@@ -72,25 +74,39 @@ func NewHubM() *Hub {
 	return h
 }
 
+// Warring: lock it yourself
 func (h *Hub) DefIKey(keylen int, keybyte []byte) {
 	h.IKeys[h.HubKeyTag] = newRSAPrivKeyBase64(keylen, keybyte)
 }
+
+// Warring: lock it yourself
 func (h *Hub) AddIKey(tag string, keylen int, keybyte []byte) {
 	h.IKeys[tag] = newRSAPrivKeyBase64(keylen, keybyte)
 }
 
+// Warring: lock it yourself
 func (h *Hub) DefAKey(key []byte) {
 	h.AKeys[adminAgentTag] = key
 }
+
+// Warring: lock it yourself
 func (h *Hub) AddAKey(tag string, key []byte) {
 	h.AKeys[tag] = key
 }
 
+// Warring: lock it yourself
 func (h *Hub) SetCTag(tag string) {
 	h.CTags[tag] = true
 }
+
+// Warring: lock it yourself
 func (h *Hub) DelCTag(tag string) {
 	delete(h.CTags, tag)
+}
+
+// Warring: lock it yourself
+func (h *Hub) SetEventCallback(fn EventCallbackFunc) {
+	h.evFn = fn
 }
 
 func (h *Hub) HandleClient(p1 net.Conn) {
@@ -222,21 +238,35 @@ func (h *Hub) HandleClient(p1 net.Conn) {
 		// ACK
 		kit.WriteTagStr(enccon, agent)
 
-		// stream multiplex
-		smuxConfig := smux.DefaultConfig()
-		mux, err := smux.Server(enccon, smuxConfig)
-		if err != nil {
-			Vln(3, "mux init err", err)
+		if h.evFn != nil {
+			// add connect event callback
+			warpConn, err := h.evFn(EV_admin_conn, enccon, nil, agent)
+			if err != nil { // auth failed
+				return
+			}
+
+			h.doREPL(warpConn)
+
+			// add disconnect event callback
+			h.evFn(EV_admin_conn_cls, warpConn, nil)
 			return
 		}
 
-		h.doREPL(mux)
+		h.doREPL(enccon)
 	}
 
 	return
 }
 
-func (h *Hub) doREPL(mux *smux.Session) {
+func (h *Hub) doREPL(conn net.Conn) {
+	// stream multiplex
+	smuxConfig := smux.DefaultConfig()
+	mux, err := smux.Server(conn, smuxConfig)
+	if err != nil {
+		Vln(3, "mux init err", err)
+		return
+	}
+
 	Vln(3, "[admin]connect start")
 	for {
 		p1, err := mux.AcceptStream()
@@ -245,12 +275,12 @@ func (h *Hub) doREPL(mux *smux.Session) {
 			break
 		}
 
-		go h.doOP(p1)
+		go h.doOP(conn, p1)
 	}
 	Vln(3, "[admin]connect end")
 }
 
-func (h *Hub) doOP(p1 net.Conn) {
+func (h *Hub) doOP(mainConn net.Conn, p1 net.Conn) {
 	// read OP
 	op, err := kit.ReadTagStr(p1)
 	if err != nil {
@@ -259,6 +289,7 @@ func (h *Hub) doOP(p1 net.Conn) {
 	}
 	defer p1.Close()
 
+	// TODO: add event callback
 	switch op {
 	case H_ls:
 		// list all
@@ -323,8 +354,22 @@ func (h *Hub) doOP(p1 net.Conn) {
 			return
 		}
 		defer conn.Close()
-		kit.Cp(conn, p1)
 
+		if h.evFn != nil {
+			// add new_stream event callback
+			newConn, err := h.evFn(EV_admin_stream, mainConn, p1)
+			if err != nil { // auth failed
+				return
+			}
+
+			kit.Cp(conn, newConn)
+
+			// add close_stream event callback
+			h.evFn(EV_admin_stream_cls, mainConn, newConn)
+			return
+		}
+
+		kit.Cp(conn, p1)
 	}
 }
 

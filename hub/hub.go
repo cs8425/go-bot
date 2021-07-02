@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"sync/atomic"
 
 	"crypto/tls"
 	"net/http"
@@ -154,6 +155,8 @@ func main() {
 	hub.DefAKey(conf.AdmPubKey)
 	hub.OnePerIP = false
 
+	hub.SetEventCallback(handleEvent)
+
 	var srv net.Listener
 	if useFakeHttp {
 
@@ -242,4 +245,100 @@ func startServer(srv *http.Server, useTLS bool, crtFile string, keyFile string) 
 	if err != http.ErrServerClosed {
 		vlog.Vf(2, "[server] ListenAndServe error: %v", err)
 	}
+}
+
+type Conn struct {
+	net.Conn
+	Agent string
+
+	tx int64 // write
+	rx int64 // read
+}
+
+func (c *Conn) Read(data []byte) (n int, err error) {
+	n, err = c.Conn.Read(data)
+	atomic.AddInt64(&c.rx, int64(n))
+	return n, err
+}
+
+func (c *Conn) Write(data []byte) (n int, err error) {
+	n, err = c.Conn.Write(data)
+	atomic.AddInt64(&c.tx, int64(n))
+	return n, err
+}
+
+func (c *Conn) Rx() (n int64) {
+	return atomic.LoadInt64(&c.rx)
+}
+func (c *Conn) Tx() (n int64) {
+	return atomic.LoadInt64(&c.tx)
+}
+
+func (c *Conn) RxByteString() string {
+	return Vsize(c.Rx())
+}
+func (c *Conn) TxByteString() string {
+	return Vsize(c.Tx())
+}
+
+func NewConn(p1 net.Conn) *Conn {
+	return &Conn{
+		Conn: p1,
+	}
+}
+
+func handleEvent(evType string, mainConn net.Conn, streamConn net.Conn, argv ...interface{}) (warpConn net.Conn, err error) {
+	// TODO: log to file
+	switch evType {
+	case base.EV_admin_conn:
+		vlog.Vf(2, "[ev][%v] %v <= %v", evType, mainConn.RemoteAddr(), argv)
+		// Rx: admin => hub
+		// Tx: hub => admin
+		return NewConn(mainConn), nil
+
+	case base.EV_admin_conn_cls:
+		conn := mainConn.(*Conn)
+		vlog.Vf(2, "[ev][%v] %v <= %v  Rx = %v / Tx = %v", evType, mainConn.RemoteAddr(), argv, conn.RxByteString(), conn.TxByteString())
+
+	case base.EV_admin_stream:
+		vlog.Vf(2, "[ev][%v] %v <- %v", evType, mainConn.RemoteAddr(), argv)
+		// Rx: admin => hub => bot
+		// Tx: bot => hub => admin
+		return NewConn(streamConn), nil
+
+	case base.EV_admin_stream_cls:
+		conn := streamConn.(*Conn)
+		vlog.Vf(2, "[ev][%v] %v <- %v  Rx = %v / Tx = %v", evType, mainConn.RemoteAddr(), argv, conn.RxByteString(), conn.TxByteString())
+
+	}
+	return nil, nil
+}
+
+func Vsize(byteCount int64) (ret string) {
+	s := " "
+	tmp := float64(byteCount)
+	size := uint64(byteCount)
+
+	switch {
+	case size < uint64(2<<9):
+
+	case size < uint64(2<<19):
+		tmp = tmp / float64(2<<9)
+		s = "K"
+
+	case size < uint64(2<<29):
+		tmp = tmp / float64(2<<19)
+		s = "M"
+
+	case size < uint64(2<<39):
+		tmp = tmp / float64(2<<29)
+		s = "G"
+
+	case size < uint64(2<<49):
+		tmp = tmp / float64(2<<39)
+		s = "T"
+
+	}
+	ret = fmt.Sprintf("%06.2f %sB", tmp, s)
+	return
 }
