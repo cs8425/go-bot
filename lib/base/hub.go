@@ -212,10 +212,9 @@ func (h *Hub) HandleClient(p1 net.Conn) {
 	return
 }
 
-func (h *Hub) RunEmbed() {
+func (h *Hub) RunEmbed(c *Client) {
 	p0, p1 := net.Pipe()
-	bot := NewClientM()
-	go bot.TakeOver(p0)
+	go c.TakeOver(p0)
 	h.addClient(p1, p1, "embed", []byte("embed"))
 }
 

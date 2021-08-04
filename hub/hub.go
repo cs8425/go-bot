@@ -58,14 +58,15 @@ var (
 
 	configJson = flag.String("c", "", "config.json")
 
-	embed = flag.Bool("embed", false, "enable embed bot")
+	embed = flag.Bool("embed", false, "enable embed client (masterkey by config file)")
 )
 
 type Config struct {
-	HubPrivKey  []byte            `json:"hubkey,omitempty"`  // RSA private key for client check
-	AdmPubKey   []byte            `json:"admkey,omitempty"`  // ECDSA public key for admin check
-	HubPrivKeys map[string][]byte `json:"hubkeys,omitempty"` // RSA private key for client check
-	AdmPubKeys  map[string][]byte `json:"admkeys,omitempty"` // ECDSA public key for admin check
+	HubPrivKey  []byte            `json:"hubkey,omitempty"`    // RSA private key for client check
+	AdmPubKey   []byte            `json:"admkey,omitempty"`    // ECDSA public key for admin check
+	HubPrivKeys map[string][]byte `json:"hubkeys,omitempty"`   // RSA private key for client check
+	AdmPubKeys  map[string][]byte `json:"admkeys,omitempty"`   // ECDSA public key for admin check
+	MasterKey   []byte            `json:"masterkey,omitempty"` // ECDSA public key for access embed client
 
 	BindAddr     string `json:"bind,omitempty"` // raw, http, ws (https/wss by key/crt)
 	OnlyWs       bool   `json:"onlyws,omitempty"`
@@ -206,7 +207,10 @@ func main() {
 	vlog.Vln(2, "verbosity:", vlog.Verbosity)
 
 	if *embed {
-		go hub.RunEmbed()
+		c := base.NewClientM()
+		c.MasterKey = conf.MasterKey // extra
+		go hub.RunEmbed(c)
+		vlog.Vln(2, "start embeded... MasterKey = ", c.MasterKey != nil)
 	}
 
 	for {
