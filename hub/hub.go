@@ -57,6 +57,8 @@ var (
 	keyFile = flag.String("key", "", "PEM encoded private key file")
 
 	configJson = flag.String("c", "", "config.json")
+
+	embed = flag.Bool("embed", false, "enable embed bot")
 )
 
 type Config struct {
@@ -202,6 +204,10 @@ func main() {
 		vlog.Vln(2, "listening on:", lis.Addr())
 	}
 	vlog.Vln(2, "verbosity:", vlog.Verbosity)
+
+	if *embed {
+		go hub.RunEmbed()
+	}
 
 	for {
 		if conn, err := srv.Accept(); err == nil {

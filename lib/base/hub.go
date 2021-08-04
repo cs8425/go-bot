@@ -167,60 +167,14 @@ func (h *Hub) HandleClient(p1 net.Conn) {
 	cok, ok := h.CTags[agent]
 	if ok && cok {
 		// get UUID
-		UUID, _ := kit.ReadTagByte(enccon)
-
-		// stream multiplex
-		smuxConfig := smux.DefaultConfig()
-		mux, err := smux.Server(enccon, smuxConfig)
+		UUID, err := kit.ReadTagByte(enccon)
 		if err != nil {
-			Vln(3, "mux init err", err)
+			Vln(3, "Read UUID err:", err)
 			return
 		}
 
-		// add to pool
-		uuidStr := kit.Hex(UUID)
-		addr := p1.RemoteAddr().String()
-		peer := NewPeer(p1, mux, UUID)
-
-		if h.OnePerIP {
-			// get old clients & send signal
-			oldlist := h.Pool.CheckOld(UUID, addr)
-			//			Vf(3, "[client][oldlist]%v\n", len(oldlist))
-			for _, peer := range oldlist {
-
-				go func(item *Peer) {
-					//					Vf(3, "[client][old peer]%v\n", item.id, item)
-					p1, err := item.Mux.OpenStream()
-					if err != nil {
-						return
-					}
-					defer p1.Close()
-					Vf(3, "[client][old peer]kill %v\n", item.id)
-					kit.WriteTagStr(p1, B_kill)
-				}(peer)
-
-			}
-		}
-
-		id, ok := h.Pool.AddPear(peer)
-		if !ok {
-			Vf(2, "[client][new][same ID & Addr]%v %v %v %v %v\n", id, uuidStr, addr, agent, peer)
-			return
-		}
-		Vf(2, "[client][new]%v %v %v %v %v\n", id, uuidStr, addr, agent, peer)
-
-		// hack for OnClose
-		for {
-			// TODO: random pull info
-			_, err := mux.AcceptStream()
-			if err != nil {
-				mux.Close()
-				p1.Close()
-				Vf(2, "[client][cls]%v %v %v %v\n", id, uuidStr, addr, peer)
-				h.Pool.DelPear(id)
-				break
-			}
-		}
+		// uuidStr := kit.Hex(UUID)
+		h.addClient(p1, enccon, agent, UUID)
 	}
 
 	// admin
@@ -256,6 +210,69 @@ func (h *Hub) HandleClient(p1 net.Conn) {
 	}
 
 	return
+}
+
+func (h *Hub) RunEmbed() {
+	p0, p1 := net.Pipe()
+	bot := NewClientM()
+	go bot.TakeOver(p0)
+	h.addClient(p1, p1, "embed", []byte("embed"))
+}
+
+func (h *Hub) addClient(p1 net.Conn, enccon net.Conn, agent string, UUID []byte) {
+	// stream multiplex
+	smuxConfig := smux.DefaultConfig()
+	mux, err := smux.Server(enccon, smuxConfig)
+	if err != nil {
+		Vln(3, "mux init err", err)
+		return
+	}
+
+	// add to pool
+	uuidStr := kit.Hex(UUID)
+	// uuidStr := string(UUID)
+	addr := p1.RemoteAddr().String()
+	peer := NewPeer(p1, mux, UUID)
+
+	if h.OnePerIP {
+		// get old clients & send signal
+		oldlist := h.Pool.CheckOld(UUID, addr)
+		// Vf(3, "[client][oldlist]%v\n", len(oldlist))
+		for _, peer := range oldlist {
+
+			go func(item *Peer) {
+				// Vf(3, "[client][old peer]%v\n", item.id, item)
+				p1, err := item.Mux.OpenStream()
+				if err != nil {
+					return
+				}
+				defer p1.Close()
+				Vf(3, "[client][old peer]kill %v\n", item.id)
+				kit.WriteTagStr(p1, B_kill)
+			}(peer)
+
+		}
+	}
+
+	id, ok := h.Pool.AddPear(peer)
+	if !ok {
+		Vf(2, "[client][new][same ID & Addr]%v %v %v %v %v\n", id, uuidStr, addr, agent, peer)
+		return
+	}
+	Vf(2, "[client][new]%v %v %v %v %v\n", id, uuidStr, addr, agent, peer)
+
+	// hack for OnClose
+	for {
+		// TODO: random pull info
+		_, err := mux.AcceptStream()
+		if err != nil {
+			mux.Close()
+			p1.Close()
+			Vf(2, "[client][cls]%v %v %v %v\n", id, uuidStr, addr, peer)
+			h.Pool.DelPear(id)
+			break
+		}
+	}
 }
 
 func (h *Hub) doREPL(conn net.Conn) {

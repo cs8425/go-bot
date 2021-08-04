@@ -92,9 +92,7 @@ func (c *Client) Start(addr string) {
 
 	runtime.GOMAXPROCS(c.Proc)
 
-	createConn := func() (session *smux.Session, err error) {
-
-		var conn net.Conn
+	createConn := func() (conn net.Conn, err error) {
 
 		if c.Dial == nil {
 			conn, err = net.Dial("tcp", addr)
@@ -137,42 +135,38 @@ func (c *Client) Start(addr string) {
 		kit.WriteTagStr(enccon, c.AgentTag)
 		kit.WriteTagByte(enccon, c.UUID)
 
-		// stream multiplex
-		smuxConfig := smux.DefaultConfig()
-		session, err = smux.Client(enccon, smuxConfig)
-		if err != nil {
-			return
-		}
-
 		//Vln(2, "connect to:", conn.RemoteAddr())
 
-		return session, nil
-	}
-
-	// wait until a connection is ready
-	waitConn := func() *smux.Session {
-		for {
-			if session, err := createConn(); err == nil {
-				return session
-			} else {
-				kit.SleepRand()
-			}
-		}
+		return enccon, nil
 	}
 
 	for {
-		mux := waitConn()
-		for {
-			p1, err := mux.AcceptStream()
-			if err != nil {
-				mux.Close()
-				break
-			}
-
-			go c.handle1(p1, mux, false)
+		if conn, err := createConn(); err == nil {
+			c.TakeOver(conn)
 		}
-		//Vln(2, "connect end")
+		// Vln(2, "connect end")
 		kit.SleepRand()
+	}
+}
+
+func (c *Client) TakeOver(conn net.Conn) {
+	// stream multiplex
+	smuxConfig := smux.DefaultConfig()
+	mux, err := smux.Client(conn, smuxConfig)
+	if err != nil {
+		// Vln(2, "mux err", err)
+		return
+	}
+
+	for {
+		p1, err := mux.AcceptStream()
+		if err != nil {
+			// Vln(2, "accept err", err)
+			mux.Close()
+			break
+		}
+
+		go c.handle1(p1, mux, false)
 	}
 }
 
