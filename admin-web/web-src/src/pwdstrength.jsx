@@ -50,7 +50,7 @@ function LinearProgressWithLabel(props) {
 		/[a-z]/,
 		/[A-Z]/,
 		/[0-9]/,
-		/[!@#\\$%\\^&\\*]/,
+		/[\!@\#\$%\^&\*`~\-_\=\+\]\[\{\}'"\/\\\?\.\>,\<\(\)]/,
 	].filter((regex) => regex.test(value));
 	let lv = strengthMap[0];
 	if (value.length >= 4 && hasType.length >= 2) lv = strengthMap[1];
