@@ -68,6 +68,7 @@ function NodePanel(props) {
 				return res.json();
 			}).then(function (d) {
 				// console.log(d);
+				d.sort((a,b) => a.tag.localeCompare(b.tag));
 				setNodes(d);
 				setNodeStore(d);
 			});
